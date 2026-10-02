@@ -1,6 +1,6 @@
 # Recorded VisionQC results
 
-Status: **partial; D2S training/final evaluation pending**.
+Status: **partial; D2S stopped for submission; final evaluation unavailable**.
 
 Selected using development F2. The rows below are actual frozen local final evaluations. Defects are positive.
 
@@ -29,7 +29,7 @@ Full metrics, confusion matrices, recorded parameters, nine 30-shot comparisons,
 
 ## D2S segmentation
 
-Training is still running. No final segmentation metrics are available yet.
+Training was stopped for the submission deadline. Saved intermediate checkpoints are retained locally; no final segmentation metrics are available.
 
 ## Evaluation limits
 

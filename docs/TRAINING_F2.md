@@ -126,3 +126,7 @@ versions and attaches profiles to benchmark products. The core report lives in
 `outputs/final_core/REPORT.md`, with full metrics in `models.json` beside it.
 See [the deployment guide](DEPLOYMENT.md) for application setup, upload checks,
 ROI scope, mobile verification and the full 7.1–7.11 handoff.
+
+## Deadline submission
+
+The user requested stopping the long D2S run and submitting the completed work immediately. The training supervisor and D2S worker were stopped; intermediate checkpoints were preserved. All 16 anomaly profiles, nine 30-shot comparisons, three depth prototypes and OpenCV ROI ablations are complete. D2S final metrics and its domain ROI ablation are unavailable. See [submission notes](SUBMISSION.md).

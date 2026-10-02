@@ -28,7 +28,7 @@ def build(require_complete=False):
         raise RuntimeError('Completion status disagrees with expected result artifacts')
     rows=[{'dataset':p['dataset'],'category':p['category'],**{k:p['metrics'].get(k) for k in FIELDS}}
           for p in catalog.values()]
-    result={'status':'complete' if complete else 'partial; D2S training/final evaluation pending',
+    result={'status':'complete' if complete else ('partial; D2S stopped for submission; final evaluation unavailable' if state.get('state')=='stopped' else 'partial; D2S training/final evaluation pending'),
             'selection':'development F2; final labels are not used to select parameters or thresholds',
             'limitations':['Frozen final splits have been evaluated in earlier runs; these are repeated local evaluations.',
                            'Category-specific benchmark profiles require matching product and image conditions.',
@@ -36,6 +36,7 @@ def build(require_complete=False):
                            'D2S grocery segmentation is a domain ablation for industrial parts.',
                            'Physical cameras and phone networking have not been tested.'],
             'anomaly_models':rows,
+            'pooled_core_decision_metrics':json.loads((ROOT/'outputs/final_core/models.json').read_text())['pooled_core_decision_metrics'] if (ROOT/'outputs/final_core/models.json').exists() else None,
             'parameters':{key:p.get('checkpoint_parameters') for key,p in catalog.items()},
             'comparison_30shot':[{k:r.get(k) for k in ('dataset','category','model',*FIELDS)} for r in comparisons],
             'depth':[{'category':r['category'],'depth':r['depth_final'],'fusion':r['fusion_final'],
@@ -63,7 +64,7 @@ def build(require_complete=False):
         lines.append('Original-mask F2: '+percent(m['mask_f2'])+'; precision: '+percent(m['mask_precision'])+
                      '; recall: '+percent(m['mask_recall'])+'; F1: '+percent(m['mask_f1'])+'.')
     else:
-        lines.append('Training is still running. No final segmentation metrics are available yet.')
+        lines.append('Training was stopped for the submission deadline. Saved intermediate checkpoints are retained locally; no final segmentation metrics are available.' if state.get('state')=='stopped' else 'Training is still running. No final segmentation metrics are available yet.')
     lines+=['','## Evaluation limits','']+['- '+item for item in result['limitations']]
     lines+=['','See [the training runbook](../TRAINING_F2.md) and [deployment guide](../DEPLOYMENT.md) for reproducibility and integration checks. Datasets, weights and bulk example images stay outside Git.']
     (folder/'README.md').write_text('\n'.join(lines)+'\n')
