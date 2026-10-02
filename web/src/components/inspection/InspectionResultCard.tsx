@@ -32,61 +32,94 @@ export const InspectionResultCard: React.FC<Props> = ({ result, onInspectNext })
 
       {/* Scores */}
       <div className="grid grid-cols-2 gap-4">
+        {/* Anomaly Score */}
         <Card className="shadow-sm border-border bg-secondary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">Anomaly Score</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">
+                Anomaly Score
+              </span>
             </div>
+
             <div className="text-2xl font-bold text-foreground mb-3">
-              {(result.anomaly_score * 100).toFixed(1)}%
+              {result.anomaly_score.toFixed(3)}
             </div>
-            <Progress 
-              value={Math.min(result.anomaly_score * 100, 100)} 
+
+            <Progress
+              value={Math.min(Math.max(result.anomaly_score * 100, 0), 100)}
               className="h-1.5 bg-border"
-              indicatorClassName={result.anomaly_score > result.threshold ? 'bg-destructive' : 'bg-green-500'}
+              indicatorClassName={
+                result.anomaly_score > result.threshold
+                  ? 'bg-destructive'
+                  : 'bg-green-500'
+              }
             />
           </CardContent>
         </Card>
 
+        {/* Confidence */}
         <Card className="shadow-sm border-border bg-secondary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Target className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">Confidence</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">
+                Confidence
+              </span>
             </div>
+
             <div className="text-2xl font-bold text-foreground mb-3">
-              {(result.confidence * 100).toFixed(1)}%
+              {result.confidence === 0
+                ? 'Unavailable'
+                : `${(result.confidence * 100).toFixed(1)}%`}
             </div>
-            <Progress 
-              value={result.confidence * 100} 
+
+            <Progress
+              value={
+                result.confidence === 0
+                  ? 0
+                  : Math.min(Math.max(result.confidence * 100, 0), 100)
+              }
               className="h-1.5 bg-border"
               indicatorClassName="bg-primary"
             />
           </CardContent>
         </Card>
 
+        {/* Threshold */}
         <Card className="shadow-sm border-border bg-secondary/20">
           <CardContent className="p-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">Threshold</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">
+              Threshold
+            </span>
+
             <div className="text-2xl font-bold text-muted-foreground/70">
-              {(result.threshold * 100).toFixed(0)}%
+              {result.threshold.toFixed(3)}
             </div>
           </CardContent>
         </Card>
 
+        {/* Processing Time */}
         <Card className="shadow-sm border-border bg-secondary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">Time</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0">
+                Time
+              </span>
             </div>
+
             <div className="text-2xl font-bold text-foreground">
               {result.processing_time_ms}ms
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <p className="text-muted-foreground text-xs leading-relaxed px-1">
+        Anomaly scores use a 0–1 scale; they are not defect probabilities.
+        REVIEW requests a manual check near the threshold.
+      </p>
 
       {/* Defects */}
       {result.defects.length > 0 && (

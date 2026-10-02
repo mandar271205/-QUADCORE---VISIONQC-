@@ -220,8 +220,8 @@ export default function InspectScreen() {
             {/* Scores */}
             <View style={styles.scoreRow}>
               {[
-                { label: 'Anomaly', value: `${(result.anomaly_score * 100).toFixed(1)}%` },
-                { label: 'Confidence', value: `${(result.confidence * 100).toFixed(1)}%` },
+                { label: 'Anomaly', value: result.anomaly_score.toFixed(3) },
+                { label: 'Confidence', value: result.confidence === 0 ? 'Unavailable' : `${(result.confidence * 100).toFixed(1)}%` },
                 { label: 'Time', value: `${result.processing_time_ms}ms` },
               ].map(({ label, value }) => (
                 <View key={label} style={[styles.scoreCard, { flex: 1 }]}>

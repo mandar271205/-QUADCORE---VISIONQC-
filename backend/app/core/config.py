@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     ] = "vlm_primary"
     ML_ENABLED: bool = False
     ML_MODEL_ROOT: str = "./models"
+    ML_EXPERIMENT_ROOT: str = "./outputs"
+    ML_DEVICE: str = "cpu"
+    ML_CACHE_SIZE: int = 2
+    ML_TORCH_THREADS: int = 4
+    MOBILE_USE_ML: bool = False
     ENGINE_TIMEOUT_SECONDS: int = 8
     MIN_ACCEPT_CONFIDENCE: float = 0.70
     REVIEW_MARGIN: float = 0.05

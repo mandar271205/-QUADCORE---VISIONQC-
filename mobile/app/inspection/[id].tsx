@@ -131,7 +131,7 @@ export default function InspectionDetailScreen() {
                   { color: data.anomaly_score > data.threshold ? COLORS.fail : COLORS.pass },
                 ]}
               >
-                {(data.anomaly_score * 100).toFixed(1)}%
+                {data.anomaly_score.toFixed(3)}
               </Text>
             </View>
             <View style={styles.metric}>
@@ -140,7 +140,7 @@ export default function InspectionDetailScreen() {
             </View>
             <View style={styles.metric}>
               <Text style={styles.mLabel}>CONFIDENCE</Text>
-              <Text style={styles.mVal}>{(data.confidence * 100).toFixed(0)}%</Text>
+              <Text style={styles.mVal}>{data.confidence === 0 ? 'Unavailable' : `${(data.confidence * 100).toFixed(0)}%`}</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.mLabel}>LATENCY</Text>

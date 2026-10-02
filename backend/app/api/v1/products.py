@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.db.models import Product, ProductReferenceImage, ProductThresholdHistory
 from app.schemas.products import (
     ProductCreate, ProductUpdate, ProductResponse,
-    ThresholdUpdate, ReferenceImageResponse
+    ThresholdUpdate, ReferenceImageResponse, ProfileAssignment
 )
 from app.services.storage.supabase import storage_service
 from app.services.heatmap.masks import validate_and_preprocess
@@ -18,6 +18,34 @@ from app.core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+@router.get('/trained-profiles')
+async def trained_profiles():
+    from app.services.ml.catalog import public_profiles
+    return public_profiles()
+
+
+@router.put('/{product_id}/model-profile', response_model=ProductResponse)
+async def assign_profile(product_id: uuid.UUID, body: ProfileAssignment,
+                         db: AsyncSession = Depends(get_db)):
+    from app.services.ml.catalog import register_profile
+    from app.db.models import ModelStatus
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(404, 'Product not found.')
+    try:
+        register_profile(str(product_id), body.profile_id)
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+    db.add(ProductThresholdHistory(product_id=product.id, old_threshold=product.threshold,
+                                   new_threshold=.5))
+    product.threshold = .5
+    product.model_status = ModelStatus.ready
+    await db.commit()
+    await db.refresh(product)
+    return product
 
 
 @router.get("", response_model=List[ProductResponse])

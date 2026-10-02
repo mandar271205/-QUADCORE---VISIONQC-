@@ -21,7 +21,7 @@ from app.schemas.inspection import (
     ProductSummaryInInspection
 )
 from app.schemas.defects import DefectResponse, DefectRegion
-from app.services.inspection_router import inspection_router
+from app.services.inspection_router import inspection_router, resolve_inspection_mode
 from app.services.vlm.base import ProductContext
 from app.services.heatmap.generator import (
     generate_heatmap_from_anomaly_map,
@@ -34,6 +34,7 @@ from app.core.exceptions import (
     InvalidImageError, ImageTooLargeError, AllProvidersFailedError, visionqc_exception_to_http
 )
 from app.core.logging import get_logger
+from app.core.config import settings
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -49,7 +50,7 @@ async def create_inspection(
 ):
     """
     Run a quality inspection on the uploaded image.
-    Mobile clients always use VLM-only mode regardless of inspection_mode.
+    Mobile uses the configured mode when MOBILE_USE_ML is enabled; otherwise VLM-only.
     """
     start_time = time.time()
     inspection_id = uuid.uuid4()
@@ -64,8 +65,11 @@ async def create_inspection(
         raise HTTPException(status_code=422, detail="Could not read uploaded image.")
 
     # Preprocess
+    effective_mode = resolve_inspection_mode(inspection_mode, client_type)
     try:
-        original_bytes, inference_bytes = validate_and_preprocess(image_bytes, image.content_type)
+        ml_only = effective_mode == 'model_only'
+        original_bytes, inference_bytes = validate_and_preprocess(image_bytes, image.content_type,
+                                                                  lossless_inference=ml_only)
     except (InvalidImageError, ImageTooLargeError) as e:
         raise visionqc_exception_to_http(e)
 
@@ -87,6 +91,14 @@ async def create_inspection(
                 )
         except Exception:
             pass
+
+        if product is None:
+            raise HTTPException(status_code=422, detail='Select an existing product for inspection.')
+
+    if not settings.DEMO_MODE and effective_mode == 'model_only':
+        from app.services.ml.registry import MLRegistry
+        if product is None or MLRegistry.get(str(product.id)) is None:
+            raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
 
     # Validate client_type
     try:
@@ -123,6 +135,16 @@ async def create_inspection(
             buf = io.BytesIO(result.anomaly_map)
             arr = np.array(Image.open(buf)).astype(np.float32) / 255.0
             heatmap_bytes, _ = generate_heatmap_from_anomaly_map(arr, original_bytes)
+            if result.roi_region:
+                from PIL import ImageDraw
+                annotated=Image.open(io.BytesIO(heatmap_bytes)).convert('RGB')
+                region=result.roi_region
+                w,h=annotated.size
+                box=(region['x']*w,region['y']*h,
+                     (region['x']+region['width'])*w-1,(region['y']+region['height'])*h-1)
+                ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
+                annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
+                heatmap_bytes=annotated_bytes.getvalue()
         elif result.defects and any(
             d.get("region") for d in result.defects if isinstance(d, dict)
         ):

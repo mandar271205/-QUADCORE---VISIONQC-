@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import apiClient from '../../api/client';
 import {
   LayoutDashboard,
   ScanLine,
@@ -17,10 +18,21 @@ const navItems = [
   { to: '/products', icon: Package, label: 'Products' },
   { to: '/history', icon: ClipboardList, label: 'History' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+  { to: '/comparison', icon: BarChart2, label: 'Model Comparison' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export const Sidebar: React.FC = () => {
+  const [status, setStatus] = useState<'CHECKING' | 'READY' | 'UNAVAILABLE'>('CHECKING');
+  useEffect(() => {
+    let active = true;
+    const check = () => apiClient.get<{inspection_available:boolean}>('/system/status')
+      .then(response => { if (active) setStatus(response.data.inspection_available ? 'READY' : 'UNAVAILABLE'); })
+      .catch(() => { if (active) setStatus('UNAVAILABLE'); });
+    check();
+    const timer = window.setInterval(check, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
   return (
     <aside className="w-[240px] flex-shrink-0 min-h-screen bg-card border-r border-border flex flex-col z-20">
       {/* Logo */}
@@ -64,9 +76,30 @@ export const Sidebar: React.FC = () => {
       {/* System status at bottom */}
       <div className="p-4 border-t border-border bg-card/50">
         <div className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wider">Status</div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-          <span className="text-sm font-medium text-foreground">Operational</span>
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              status === 'READY'
+                ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
+                : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+            }`}
+          />
+
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">
+              Inspection System
+            </span>
+
+            <span
+              className={`text-xs font-semibold ${
+                status === 'READY'
+                  ? 'text-green-500'
+                  : 'text-amber-500'
+              }`}
+            >
+              {status}
+            </span>
+          </div>
         </div>
       </div>
     </aside>

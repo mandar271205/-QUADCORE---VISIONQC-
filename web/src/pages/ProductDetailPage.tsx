@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Trash2, SlidersHorizontal } from 'lucide-react';
 import {
   getProduct, updateThreshold, uploadReferenceImage,
-  getReferenceImages, deleteReferenceImage
+  getReferenceImages, deleteReferenceImage, getTrainedProfiles, assignModelProfile
 } from '../api/products';
+import type { TrainedProfile } from '../api/products';
 import { getInspections } from '../api/inspections';
 import type { Product, ReferenceImage, InspectionListItem } from '../types';
 import { DecisionBadge } from '../components/common/DecisionBadge';
@@ -34,6 +35,10 @@ export const ProductDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<TrainedProfile[]>([]);
+  const [profileId, setProfileId] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [assigning, setAssigning] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -53,6 +58,24 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    getTrainedProfiles().then(setProfiles).catch(error => setProfileError(error.message));
+  }, []);
+
+  const attachProfile = async () => {
+    if (!id || !profileId) return;
+    setAssigning(true);
+    setProfileError('');
+    try {
+      const updated = await assignModelProfile(id, profileId);
+      setProduct(updated);
+      setThreshold(updated.threshold);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Could not attach profile.');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const handleThresholdSave = async () => {
     if (!id) return;
@@ -110,6 +133,22 @@ export const ProductDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: settings */}
         <div className="space-y-4">
+          <div className="card">
+            <h3 className="section-title">Trained Inspection Profile</h3>
+            <p className="text-vqc-muted text-xs mb-3">Choose a profile matching this product and its training images. Attaching it restores the tuned threshold.</p>
+            <select aria-label="Trained inspection profile" className="input mb-3" value={profileId} onChange={event => setProfileId(event.target.value)}>
+              <option value="">{profiles.length ? 'Select matching product profile' : 'No trained profiles available yet'}</option>
+              {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+            </select>
+            {profiles.filter(profile => profile.id === profileId).map(profile => (
+              <p key={profile.id} className="text-vqc-muted text-xs mb-3">Held-out F2: {(profile.metrics.f2 * 100).toFixed(2)}% · Recall: {(profile.metrics.recall * 100).toFixed(2)}% · Precision: {(profile.metrics.precision * 100).toFixed(2)}%. Results depend on matching image conditions.</p>
+            ))}
+            {profiles.some(profile => profile.id === profileId && (profile.metrics.false_reject_rate ?? 0) >= 0.9) && (
+              <p className="text-amber-300 text-xs mb-3" role="status">This profile rejected at least 90% of normal test images. Its high recall comes with many false rejects; review the results before using it for inspection.</p>
+            )}
+            <button className="btn-primary w-full" disabled={!profileId || assigning} onClick={attachProfile}>{assigning ? 'Attaching...' : 'Attach Profile'}</button>
+            {profileError && <p role="alert" className="text-red-300 text-xs mt-2">{profileError}</p>}
+          </div>
           {/* Product info */}
           <div className="card">
             <h3 className="section-title">Product Information</h3>
@@ -139,7 +178,7 @@ export const ProductDetailPage: React.FC = () => {
             </div>
             <div className="mb-2 flex justify-between">
               <span className="text-vqc-muted text-xs">Sensitivity</span>
-              <span className="text-vqc-text font-bold text-sm">{(threshold * 100).toFixed(0)}%</span>
+              <span className="text-vqc-text font-bold text-sm">{threshold.toFixed(2)}</span>
             </div>
             <input
               type="range" min={0.1} max={0.95} step={0.05}
@@ -236,7 +275,7 @@ export const ProductDetailPage: React.FC = () => {
                       <td className="py-2 px-2">
                         <DecisionBadge decision={insp.decision} size="sm" />
                       </td>
-                      <td className="py-2 px-2 font-mono text-xs">{(insp.anomaly_score * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-2 font-mono text-xs">{insp.anomaly_score.toFixed(3)}</td>
                       <td className="py-2 px-2 text-vqc-muted font-mono text-xs">{insp.processing_time_ms}ms</td>
                     </tr>
                   ))}

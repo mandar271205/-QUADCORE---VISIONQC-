@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 from uuid import UUID
 from app.db.models import ModelStatus
+from app.schemas.common import UTCResponse
 
 
 class ProductCreate(BaseModel):
@@ -19,7 +20,7 @@ class ProductUpdate(BaseModel):
     threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 
-class ProductResponse(BaseModel):
+class ProductResponse(UTCResponse):
     id: UUID
     name: str
     code: str
@@ -48,7 +49,11 @@ class ThresholdUpdate(BaseModel):
     threshold: float = Field(..., ge=0.0, le=1.0)
 
 
-class ReferenceImageResponse(BaseModel):
+class ProfileAssignment(BaseModel):
+    profile_id: str = Field(..., min_length=1, max_length=150)
+
+
+class ReferenceImageResponse(UTCResponse):
     id: UUID
     product_id: UUID
     storage_url: str

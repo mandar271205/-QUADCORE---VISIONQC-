@@ -103,3 +103,13 @@ coverage.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Experiment data and generated artifacts
+/data/
+/outputs/
+*.ckpt
+# The original models/ pattern also hid the ORM source package.
+!backend/app/db/models/
+!backend/app/db/models/**
+backend/app/db/models/__pycache__/
+*.tsbuildinfo

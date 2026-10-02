@@ -17,6 +17,7 @@ MAX_INFERENCE_DIMENSION = 1024  # max side for inference copy
 def validate_and_preprocess(
     image_bytes: bytes,
     content_type: str | None = None,
+    lossless_inference: bool = False,
 ) -> tuple[bytes, bytes]:
     """
     Validate and preprocess an uploaded image.
@@ -60,7 +61,7 @@ def validate_and_preprocess(
     # Create inference copy (downscaled if needed)
     inference_img = pil_img.copy()
     w, h = inference_img.size
-    if max(w, h) > MAX_INFERENCE_DIMENSION:
+    if not lossless_inference and max(w, h) > MAX_INFERENCE_DIMENSION:
         scale = MAX_INFERENCE_DIMENSION / max(w, h)
         new_w = int(w * scale)
         new_h = int(h * scale)
@@ -68,7 +69,10 @@ def validate_and_preprocess(
         logger.debug(f"Image downscaled from {w}x{h} to {new_w}x{new_h} for inference")
 
     inference_buf = io.BytesIO()
-    inference_img.save(inference_buf, format="JPEG", quality=88)
+    if lossless_inference:
+        inference_img.save(inference_buf, format="PNG")
+    else:
+        inference_img.save(inference_buf, format="JPEG", quality=88)
     inference_bytes = inference_buf.getvalue()
 
     return original_bytes, inference_bytes

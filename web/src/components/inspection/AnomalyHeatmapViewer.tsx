@@ -15,66 +15,70 @@ export const AnomalyHeatmapViewer: React.FC<Props> = ({
   heatmapUrl,
   className = '',
 }) => {
-  const [mode, setMode] = useState<string>('overlay');
-  const [opacity, setOpacity] = useState<number[]>([55]);
+  const [mode, setMode] = useState<'original' | 'heatmap' | 'overlay'>('overlay');
+  const [opacity, setOpacity] = useState<number[]>([60]);
 
-  const hasImages = originalUrl || heatmapUrl;
+  const hasImages = Boolean(originalUrl || heatmapUrl);
 
   return (
     <Card className={`border-border bg-card shadow-lg ${className}`}>
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-sm font-semibold tracking-tight uppercase">Anomaly Heatmap</CardTitle>
+        <CardTitle className="text-sm font-semibold tracking-tight uppercase">
+          Anomaly Heatmap
+        </CardTitle>
+
         {hasImages && (
-          <Tabs value={mode} onValueChange={setMode} className="w-auto">
-            <TabsList className="grid w-[240px] grid-cols-3">
-              <TabsTrigger value="original" className="text-xs">
-                <ImageIcon className="w-3 h-3 mr-1" />
-                Original
-              </TabsTrigger>
-              <TabsTrigger value="heatmap" className="text-xs">
-                <Activity className="w-3 h-3 mr-1" />
-                Heatmap
-              </TabsTrigger>
-              <TabsTrigger value="overlay" className="text-xs">
-                <Layers className="w-3 h-3 mr-1" />
-                Overlay
-              </TabsTrigger>
+          <Tabs
+            value={mode}
+            onValueChange={(value: string) =>
+              setMode(value as 'original' | 'heatmap' | 'overlay')
+            }
+            className="w-auto"
+          >
+            <TabsList>
+              <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+              <TabsTrigger value="overlay">Overlay</TabsTrigger>
             </TabsList>
           </Tabs>
         )}
       </CardHeader>
-      
-      <CardContent className="pt-2">
-        <div className="relative rounded-md overflow-hidden bg-muted/30 aspect-video flex items-center justify-center border border-border">
+
+      <CardContent>
+        {/* Image display */}
+        <div className="relative rounded-lg overflow-hidden bg-muted aspect-video flex items-center justify-center">
           {!hasImages ? (
-            <div className="text-muted-foreground text-sm flex flex-col items-center">
-              <Activity className="w-8 h-8 mb-2 opacity-20" />
-              <span>No image available</span>
+            <div className="text-muted-foreground text-sm">
+              No image available
             </div>
           ) : (
-            <div className="relative w-full h-full bg-black/50">
-              {/* Original */}
+            <div className="relative w-full h-full">
+              {/* Original inspection image */}
               {originalUrl && (
                 <img
                   src={originalUrl}
                   alt="Original inspection image"
                   className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
-                    mode === 'original' || mode === 'overlay' ? 'opacity-100' : 'opacity-0'
+                    mode === 'original' || mode === 'overlay'
+                      ? 'opacity-100'
+                      : 'opacity-0'
                   }`}
                 />
               )}
 
-              {/* Heatmap overlay */}
+              {/* Anomaly heatmap */}
               {heatmapUrl && (
                 <img
                   src={heatmapUrl}
                   alt="Anomaly heatmap"
-                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300`}
+                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
                   style={{
                     opacity:
-                      mode === 'heatmap' ? 1 :
-                      mode === 'overlay' ? opacity[0] / 100 :
-                      0,
+                      mode === 'heatmap'
+                        ? 1
+                        : mode === 'overlay'
+                          ? opacity[0] / 100
+                          : 0,
                     mixBlendMode: mode === 'overlay' ? 'screen' : 'normal',
                   }}
                 />
@@ -83,10 +87,13 @@ export const AnomalyHeatmapViewer: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Opacity slider */}
+        {/* Heatmap opacity — only relevant in overlay mode */}
         {mode === 'overlay' && heatmapUrl && originalUrl && (
           <div className="mt-5 flex items-center gap-4 px-2">
-            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider w-32">Heatmap Opacity</span>
+            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider w-32">
+              Heatmap Opacity
+            </span>
+
             <Slider
               value={opacity}
               onValueChange={setOpacity}
@@ -94,6 +101,7 @@ export const AnomalyHeatmapViewer: React.FC<Props> = ({
               step={5}
               className="flex-1"
             />
+
             <span className="text-muted-foreground text-xs font-medium w-10 text-right">
               {opacity[0]}%
             </span>

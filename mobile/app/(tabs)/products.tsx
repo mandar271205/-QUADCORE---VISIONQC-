@@ -153,7 +153,7 @@ export default function ProductsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
-            estimatedItemSize={120}
+
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

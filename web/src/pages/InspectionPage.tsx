@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, Upload, ScanLine, RefreshCw, AlertCircle } from 'lucide-react';
+import { Camera, Upload, ScanLine, RefreshCw, AlertCircle, Activity } from 'lucide-react';
 import { getProducts } from '../api/products';
 import { runInspection } from '../api/inspections';
 import type { Product, InspectionResponse } from '../types';
@@ -120,7 +120,7 @@ export const InspectionPage: React.FC = () => {
                     <p className="text-xs mt-1">Use file upload instead</p>
                   </div>
                 )}
-                {(stage === 'preview' || stage === 'inspecting') && capturedImage && (
+                {(stage === 'preview' || stage === 'inspecting' || stage === 'result' || stage === 'error') && capturedImage && (
                   <img src={capturedImage} alt="Preview" className="w-full h-full object-contain" />
                 )}
                 {stage === 'inspecting' && (
@@ -201,30 +201,56 @@ export const InspectionPage: React.FC = () => {
           {/* Product selector */}
           <Card className="shadow-md border-border bg-card">
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Target Product */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Target Product</label>
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Target Product
+                  </label>
+
+                  <Select
+                    value={selectedProduct}
+                    onValueChange={setSelectedProduct}
+                  >
                     <SelectTrigger className="bg-secondary/50 border-border h-11">
                       <SelectValue placeholder="Select Product (optional)" />
                     </SelectTrigger>
+
                     <SelectContent>
-                      <SelectItem value="none" className="text-muted-foreground italic">None (Auto-detect)</SelectItem>
-                      {products.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} — {p.code}</SelectItem>
+                      <SelectItem
+                        value="none"
+                        className="text-muted-foreground italic"
+                      >
+                        None (Auto-detect)
+                      </SelectItem>
+
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — {p.code}
+                          {p.model_status === 'ready' ? ' · Profile ready' : ''}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Detection Sensitivity */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Detection Sensitivity</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Detection Sensitivity
+                  </label>
+
                   <div className="h-11 px-3 flex items-center bg-secondary/30 border border-border/50 rounded-md text-sm text-foreground/80 font-medium">
                     {selectedProductData
-                      ? `${(selectedProductData.threshold * 100).toFixed(0)}% (Product specific)`
-                      : 'Default (55%)'}
+                      ? `${selectedProductData.threshold.toFixed(2)} (Product specific)`
+                      : 'Default (0.55)'}
                   </div>
                 </div>
               </div>
+
+              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                For a trained profile, choose the product that matches the uploaded image.
+              </p>
             </CardContent>
           </Card>
 

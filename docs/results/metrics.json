@@ -1,0 +1,1721 @@
+{
+  "status": "partial; D2S stopped for submission; final evaluation unavailable",
+  "selection": "development F2; final labels are not used to select parameters or thresholds",
+  "limitations": [
+    "Frozen final splits have been evaluated in earlier runs; these are repeated local evaluations.",
+    "Category-specific benchmark profiles require matching product and image conditions.",
+    "High F2 can coexist with unacceptable normal-image rejection; inspect FAR and FRR.",
+    "D2S grocery segmentation is a domain ablation for industrial parts.",
+    "Physical cameras and phone networking have not been tested."
+  ],
+  "anomaly_models": [
+    {
+      "dataset": "mvtec_ad",
+      "category": "bottle",
+      "f2": 0.967741935483871,
+      "accuracy": 0.9696969696969697,
+      "precision": 1.0,
+      "recall": 0.96,
+      "f1": 0.9795918367346939,
+      "balanced_accuracy": 0.98,
+      "image_auroc": 1.0,
+      "pixel_auroc": 0.9833250124213994,
+      "average_precision": 1.0,
+      "false_accept_rate": 0.04,
+      "false_reject_rate": 0.0,
+      "latency_ms": 119.32553842482527,
+      "confusion_matrix": [
+        [
+          16,
+          0
+        ],
+        [
+          2,
+          48
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "cable",
+      "f2": 0.9016393442622951,
+      "accuracy": 0.9,
+      "precision": 0.9428571428571428,
+      "recall": 0.8918918918918919,
+      "f1": 0.9166666666666666,
+      "balanced_accuracy": 0.9024676850763806,
+      "image_auroc": 0.9717978848413631,
+      "pixel_auroc": 0.9739840969239029,
+      "average_precision": 0.9843276598643886,
+      "false_accept_rate": 0.10810810810810811,
+      "false_reject_rate": 0.08695652173913043,
+      "latency_ms": 125.7716947828764,
+      "confusion_matrix": [
+        [
+          42,
+          4
+        ],
+        [
+          8,
+          66
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "capsule",
+      "f2": 0.9908883826879271,
+      "accuracy": 0.9619047619047619,
+      "precision": 0.9560439560439561,
+      "recall": 1.0,
+      "f1": 0.9775280898876404,
+      "balanced_accuracy": 0.8888888888888888,
+      "image_auroc": 0.9802043422733078,
+      "pixel_auroc": 0.9897174159365294,
+      "average_precision": 0.9951140549806062,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 0.2222222222222222,
+      "latency_ms": 164.702219457069,
+      "confusion_matrix": [
+        [
+          14,
+          4
+        ],
+        [
+          0,
+          87
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "metal_nut",
+      "f2": 0.9973045822102425,
+      "accuracy": 0.9891304347826086,
+      "precision": 0.9866666666666667,
+      "recall": 1.0,
+      "f1": 0.9932885906040269,
+      "balanced_accuracy": 0.9722222222222222,
+      "image_auroc": 1.0,
+      "pixel_auroc": 0.9851438604139485,
+      "average_precision": 0.9999999999999999,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 0.05555555555555555,
+      "latency_ms": 91.37383830444458,
+      "confusion_matrix": [
+        [
+          17,
+          1
+        ],
+        [
+          0,
+          74
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "screw",
+      "f2": 0.906183368869936,
+      "accuracy": 0.890625,
+      "precision": 0.9550561797752809,
+      "recall": 0.8947368421052632,
+      "f1": 0.9239130434782609,
+      "balanced_accuracy": 0.886762360446571,
+      "image_auroc": 0.9620414673046251,
+      "pixel_auroc": 0.9887596790210851,
+      "average_precision": 0.9858439743191807,
+      "false_accept_rate": 0.10526315789473684,
+      "false_reject_rate": 0.12121212121212122,
+      "latency_ms": 148.88748728884593,
+      "confusion_matrix": [
+        [
+          29,
+          4
+        ],
+        [
+          10,
+          85
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "transistor",
+      "f2": 0.9177215189873418,
+      "accuracy": 0.95,
+      "precision": 0.9666666666666667,
+      "recall": 0.90625,
+      "f1": 0.9354838709677419,
+      "balanced_accuracy": 0.9427083333333333,
+      "image_auroc": 0.9752604166666666,
+      "pixel_auroc": 0.8960479255575239,
+      "average_precision": 0.9793275312606432,
+      "false_accept_rate": 0.09375,
+      "false_reject_rate": 0.020833333333333332,
+      "latency_ms": 170.08604008815382,
+      "confusion_matrix": [
+        [
+          47,
+          1
+        ],
+        [
+          3,
+          29
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad2",
+      "category": "sheet_metal",
+      "f2": 0.9333333333333333,
+      "accuracy": 0.7912087912087912,
+      "precision": 0.8045977011494253,
+      "recall": 0.9722222222222222,
+      "f1": 0.8805031446540881,
+      "balanced_accuracy": 0.5387426900584795,
+      "image_auroc": 0.7390350877192983,
+      "pixel_auroc": 0.8250097810200078,
+      "average_precision": 0.9251852361962923,
+      "false_accept_rate": 0.027777777777777776,
+      "false_reject_rate": 0.8947368421052632,
+      "latency_ms": 202.43853533003738,
+      "confusion_matrix": [
+        [
+          2,
+          17
+        ],
+        [
+          2,
+          70
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad2",
+      "category": "vial",
+      "f2": 0.8373205741626795,
+      "accuracy": 0.7678571428571429,
+      "precision": 0.8536585365853658,
+      "recall": 0.8333333333333334,
+      "f1": 0.8433734939759037,
+      "balanced_accuracy": 0.7023809523809523,
+      "image_auroc": 0.7967687074829932,
+      "pixel_auroc": 0.9439626119348338,
+      "average_precision": 0.9112052572182542,
+      "false_accept_rate": 0.16666666666666666,
+      "false_reject_rate": 0.42857142857142855,
+      "latency_ms": 189.0425371609256,
+      "confusion_matrix": [
+        [
+          16,
+          12
+        ],
+        [
+          14,
+          70
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad2",
+      "category": "wallplugs",
+      "f2": 0.8560794044665012,
+      "accuracy": 0.5916666666666667,
+      "precision": 0.6,
+      "recall": 0.9583333333333334,
+      "f1": 0.7379679144385026,
+      "balanced_accuracy": 0.5,
+      "image_auroc": 0.44386574074074076,
+      "pixel_auroc": 0.5,
+      "average_precision": 0.5505775040085465,
+      "false_accept_rate": 0.041666666666666664,
+      "false_reject_rate": 0.9583333333333334,
+      "latency_ms": 422.5838952161818,
+      "confusion_matrix": [
+        [
+          2,
+          46
+        ],
+        [
+          3,
+          69
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_loco",
+      "category": "screw_bag",
+      "f2": 0.8439490445859873,
+      "accuracy": 0.6373626373626373,
+      "precision": 0.6570247933884298,
+      "recall": 0.9085714285714286,
+      "f1": 0.762589928057554,
+      "balanced_accuracy": 0.5308163265306123,
+      "image_auroc": 0.6738775510204081,
+      "pixel_auroc": 0.7115034555654479,
+      "average_precision": 0.7822024345830955,
+      "false_accept_rate": 0.09142857142857143,
+      "false_reject_rate": 0.8469387755102041,
+      "latency_ms": 295.01187450169533,
+      "confusion_matrix": [
+        [
+          15,
+          83
+        ],
+        [
+          16,
+          159
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_3d_ad",
+      "category": "cable_gland",
+      "f2": 0.938375350140056,
+      "accuracy": 0.8505747126436781,
+      "precision": 0.8701298701298701,
+      "recall": 0.9571428571428572,
+      "f1": 0.9115646258503401,
+      "balanced_accuracy": 0.684453781512605,
+      "image_auroc": 0.8647058823529412,
+      "pixel_auroc": 0.9838869348238952,
+      "average_precision": 0.9548134925036234,
+      "false_accept_rate": 0.04285714285714286,
+      "false_reject_rate": 0.5882352941176471,
+      "latency_ms": 33.50913416073743,
+      "confusion_matrix": [
+        [
+          7,
+          10
+        ],
+        [
+          3,
+          67
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_3d_ad",
+      "category": "dowel",
+      "f2": 0.9564164648910412,
+      "accuracy": 0.9423076923076923,
+      "precision": 0.9753086419753086,
+      "recall": 0.9518072289156626,
+      "f1": 0.9634146341463414,
+      "balanced_accuracy": 0.9282845668387837,
+      "image_auroc": 0.9845094664371773,
+      "pixel_auroc": 0.9933730221773528,
+      "average_precision": 0.9964471337353695,
+      "false_accept_rate": 0.04819277108433735,
+      "false_reject_rate": 0.09523809523809523,
+      "latency_ms": 18.62238860611307,
+      "confusion_matrix": [
+        [
+          19,
+          2
+        ],
+        [
+          4,
+          79
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_3d_ad",
+      "category": "tire",
+      "f2": 0.875,
+      "accuracy": 0.7333333333333333,
+      "precision": 0.7875,
+      "recall": 0.9,
+      "f1": 0.84,
+      "balanced_accuracy": 0.525,
+      "image_auroc": 0.7435714285714285,
+      "pixel_auroc": 0.9810572289843373,
+      "average_precision": 0.9096955222638548,
+      "false_accept_rate": 0.1,
+      "false_reject_rate": 0.85,
+      "latency_ms": 88.41483012203955,
+      "confusion_matrix": [
+        [
+          3,
+          17
+        ],
+        [
+          7,
+          63
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad2",
+      "category": "can",
+      "f2": 0.7425742574257426,
+      "accuracy": 0.47692307692307695,
+      "precision": 0.5172413793103449,
+      "recall": 0.8333333333333334,
+      "f1": 0.6382978723404256,
+      "balanced_accuracy": 0.4339080459770115,
+      "image_auroc": 0.46599616858237547,
+      "pixel_auroc": 0.5841776580671201,
+      "average_precision": 0.5693115974024288,
+      "false_accept_rate": 0.16666666666666666,
+      "false_reject_rate": 0.9655172413793104,
+      "latency_ms": 128.8509843000681,
+      "confusion_matrix": [
+        [
+          2,
+          56
+        ],
+        [
+          12,
+          60
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_loco",
+      "category": "breakfast_box",
+      "f2": 0.8942558746736292,
+      "accuracy": 0.6454545454545455,
+      "precision": 0.6401869158878505,
+      "recall": 0.9927536231884058,
+      "f1": 0.7784090909090909,
+      "balanced_accuracy": 0.5268646164722517,
+      "image_auroc": 0.8319194061505832,
+      "pixel_auroc": 0.9150525218099792,
+      "average_precision": 0.9143129671352119,
+      "false_accept_rate": 0.007246376811594203,
+      "false_reject_rate": 0.9390243902439024,
+      "latency_ms": 91.7167471364585,
+      "confusion_matrix": [
+        [
+          5,
+          77
+        ],
+        [
+          1,
+          137
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_loco",
+      "category": "splicing_connectors",
+      "f2": 0.8778173190984578,
+      "accuracy": 0.6586345381526104,
+      "precision": 0.6519823788546255,
+      "recall": 0.961038961038961,
+      "f1": 0.7769028871391076,
+      "balanced_accuracy": 0.56473000683527,
+      "image_auroc": 0.8190020505809981,
+      "pixel_auroc": 0.7232628096776728,
+      "average_precision": 0.8987729915394076,
+      "false_accept_rate": 0.03896103896103896,
+      "false_reject_rate": 0.8315789473684211,
+      "latency_ms": 70.86801742154209,
+      "confusion_matrix": [
+        [
+          16,
+          79
+        ],
+        [
+          6,
+          148
+        ]
+      ]
+    }
+  ],
+  "pooled_core_decision_metrics": {
+    "test_images": 591,
+    "confusion_matrix": [
+      [
+        165,
+        14
+      ],
+      [
+        23,
+        389
+      ]
+    ],
+    "accuracy": 0.937394247038917,
+    "precision": 0.9652605459057072,
+    "recall": 0.9441747572815534,
+    "f1": 0.9546012269938651,
+    "f2": 0.9483178937103852
+  },
+  "parameters": {
+    "mvtec_ad/bottle": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 42.544761657714844,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad/cable": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 128,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 43.43303680419922,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad/capsule": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 512,
+        "seed": 42,
+        "epochs": 50,
+        "batch_size": 2,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.4995703550658338,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 512,
+            "seed": 42,
+            "epochs": 50,
+            "batch_size": 2,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 9.63566780090332,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.03,
+          "num_neighbors": 9,
+          "max_training_patches": 60000
+        }
+      ]
+    },
+    "mvtec_ad/metal_nut": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 44.336483001708984,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad/screw": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 512,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5001302273636172,
+      "weights": [
+        0.75,
+        0.25
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 11.228178024291992,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 512,
+            "seed": 42,
+            "epochs": 50,
+            "batch_size": 2,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 13.74465036392212,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.03,
+          "num_neighbors": 9,
+          "max_training_patches": 60000
+        }
+      ]
+    },
+    "mvtec_ad/transistor": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 384,
+        "seed": 42,
+        "epochs": 50,
+        "batch_size": 2,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.49999906433242747,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 384,
+            "seed": 42,
+            "epochs": 50,
+            "batch_size": 2,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 48.66717338562012,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.02,
+          "num_neighbors": 9,
+          "max_training_patches": 60000
+        }
+      ]
+    },
+    "mvtec_ad2/sheet_metal": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 36.3067569732666,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad2/vial": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5040960236333489,
+      "weights": [
+        0.5,
+        0.5
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 13.405590534210205,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 41.033504486083984,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad2/wallplugs": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.9999999964875946,
+      "weights": [
+        0.75,
+        0.25
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 1.1920928955078125e-07,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 1.1920928955078125e-07,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_loco/screw_bag": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5057129851361175,
+      "weights": [
+        0.75,
+        0.25
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 47.33693885803223,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 14.713103771209717,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_3d_ad/cable_gland": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5023481035894519,
+      "weights": [
+        0.75,
+        0.25
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 10.808410167694092,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 9.993785858154297,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.02,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_3d_ad/dowel": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 8.480802536010742,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_3d_ad/tire": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5041797224122356,
+      "weights": [
+        0.25,
+        0.75
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 8.675680160522461,
+          "backbone": "resnet18",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        },
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 32.24984073638916,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_ad2/can": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 256,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 256,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 42.925350189208984,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.005,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_loco/breakfast_box": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 128,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 37.10514831542969,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    },
+    "mvtec_loco/splicing_connectors": {
+      "model": "ensemble",
+      "config": {
+        "image_size": 128,
+        "seed": 42,
+        "epochs": 1,
+        "batch_size": 4,
+        "learning_rate": 0.001,
+        "percentile": 99.0,
+        "device": "mps"
+      },
+      "threshold": 0.5,
+      "weights": [
+        1.0
+      ],
+      "members": [
+        {
+          "model": "patchcore",
+          "config": {
+            "image_size": 128,
+            "seed": 42,
+            "epochs": 1,
+            "batch_size": 4,
+            "learning_rate": 0.001,
+            "percentile": 99.0,
+            "device": "mps"
+          },
+          "threshold": 36.66788673400879,
+          "backbone": "wide_resnet50_2",
+          "coreset_ratio": 0.01,
+          "num_neighbors": 9,
+          "max_training_patches": null
+        }
+      ]
+    }
+  },
+  "comparison_30shot": [
+    {
+      "dataset": "mvtec_ad",
+      "category": "screw",
+      "model": "autoencoder",
+      "f2": 0.9350393700787402,
+      "accuracy": 0.7421875,
+      "precision": 0.7421875,
+      "recall": 1.0,
+      "f1": 0.852017937219731,
+      "balanced_accuracy": 0.5,
+      "image_auroc": 0.2880382775119617,
+      "pixel_auroc": 0.8678670202551029,
+      "average_precision": 0.6647738904121674,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 1.0,
+      "latency_ms": 15.50613181262861,
+      "confusion_matrix": [
+        [
+          0,
+          33
+        ],
+        [
+          0,
+          95
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "screw",
+      "model": "padim",
+      "f2": 0.898989898989899,
+      "accuracy": 0.75,
+      "precision": 0.7739130434782608,
+      "recall": 0.9368421052631579,
+      "f1": 0.8476190476190476,
+      "balanced_accuracy": 0.574481658692185,
+      "image_auroc": 0.554066985645933,
+      "pixel_auroc": 0.958501013774613,
+      "average_precision": 0.7701840393692324,
+      "false_accept_rate": 0.06315789473684211,
+      "false_reject_rate": 0.7878787878787878,
+      "latency_ms": 22.369737952601554,
+      "confusion_matrix": [
+        [
+          7,
+          26
+        ],
+        [
+          6,
+          89
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "screw",
+      "model": "patchcore",
+      "f2": 0.9262948207171314,
+      "accuracy": 0.7578125,
+      "precision": 0.7622950819672131,
+      "recall": 0.9789473684210527,
+      "f1": 0.8571428571428571,
+      "balanced_accuracy": 0.550079744816587,
+      "image_auroc": 0.6787878787878788,
+      "pixel_auroc": 0.9490930820267496,
+      "average_precision": 0.8488440241471502,
+      "false_accept_rate": 0.021052631578947368,
+      "false_reject_rate": 0.8787878787878788,
+      "latency_ms": 21.321906929983925,
+      "confusion_matrix": [
+        [
+          4,
+          29
+        ],
+        [
+          2,
+          93
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "cable",
+      "model": "autoencoder",
+      "f2": 0.8894230769230769,
+      "accuracy": 0.6166666666666667,
+      "precision": 0.6166666666666667,
+      "recall": 1.0,
+      "f1": 0.7628865979381443,
+      "balanced_accuracy": 0.5,
+      "image_auroc": 0.5522914218566393,
+      "pixel_auroc": 0.5324587464176299,
+      "average_precision": 0.7147976299805512,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 1.0,
+      "latency_ms": 32.55452782505017,
+      "confusion_matrix": [
+        [
+          0,
+          46
+        ],
+        [
+          0,
+          74
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "cable",
+      "model": "padim",
+      "f2": 0.8894230769230769,
+      "accuracy": 0.6166666666666667,
+      "precision": 0.6166666666666667,
+      "recall": 1.0,
+      "f1": 0.7628865979381443,
+      "balanced_accuracy": 0.5,
+      "image_auroc": 0.7699764982373678,
+      "pixel_auroc": 0.9506878566255118,
+      "average_precision": 0.8228201359687487,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 1.0,
+      "latency_ms": 41.869791291295165,
+      "confusion_matrix": [
+        [
+          0,
+          46
+        ],
+        [
+          0,
+          74
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "cable",
+      "model": "patchcore",
+      "f2": 0.925,
+      "accuracy": 0.75,
+      "precision": 0.7115384615384616,
+      "recall": 1.0,
+      "f1": 0.8314606741573034,
+      "balanced_accuracy": 0.6739130434782609,
+      "image_auroc": 0.9653349001175088,
+      "pixel_auroc": 0.9781187709761255,
+      "average_precision": 0.9796205204226852,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 0.6521739130434783,
+      "latency_ms": 42.34614609995333,
+      "confusion_matrix": [
+        [
+          16,
+          30
+        ],
+        [
+          0,
+          74
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "transistor",
+      "model": "autoencoder",
+      "f2": 0.7692307692307693,
+      "accuracy": 0.4,
+      "precision": 0.4,
+      "recall": 1.0,
+      "f1": 0.5714285714285714,
+      "balanced_accuracy": 0.5,
+      "image_auroc": 0.44791666666666663,
+      "pixel_auroc": 0.5082183549740826,
+      "average_precision": 0.4610939533128344,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 1.0,
+      "latency_ms": 33.226838037262496,
+      "confusion_matrix": [
+        [
+          0,
+          48
+        ],
+        [
+          0,
+          32
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "transistor",
+      "model": "padim",
+      "f2": 0.7831325301204819,
+      "accuracy": 0.775,
+      "precision": 0.6842105263157895,
+      "recall": 0.8125,
+      "f1": 0.7428571428571429,
+      "balanced_accuracy": 0.78125,
+      "image_auroc": 0.8828124999999999,
+      "pixel_auroc": 0.9592716067582725,
+      "average_precision": 0.8679051226899615,
+      "false_accept_rate": 0.1875,
+      "false_reject_rate": 0.25,
+      "latency_ms": 52.25432917513899,
+      "confusion_matrix": [
+        [
+          36,
+          12
+        ],
+        [
+          6,
+          26
+        ]
+      ]
+    },
+    {
+      "dataset": "mvtec_ad",
+      "category": "transistor",
+      "model": "patchcore",
+      "f2": 0.8888888888888888,
+      "accuracy": 0.75,
+      "precision": 0.6153846153846154,
+      "recall": 1.0,
+      "f1": 0.7619047619047619,
+      "balanced_accuracy": 0.7916666666666667,
+      "image_auroc": 0.9908854166666666,
+      "pixel_auroc": 0.9453315070741959,
+      "average_precision": 0.9880976228632479,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": 0.4166666666666667,
+      "latency_ms": 66.93619480029156,
+      "confusion_matrix": [
+        [
+          28,
+          20
+        ],
+        [
+          0,
+          32
+        ]
+      ]
+    }
+  ],
+  "depth": [
+    {
+      "category": "cable_gland",
+      "depth": {
+        "image_auroc": 0.5781512605042017,
+        "accuracy": 0.8045977011494253,
+        "balanced_accuracy": 0.5,
+        "average_precision": 0.8731832900201024,
+        "confusion_matrix": [
+          [
+            0,
+            17
+          ],
+          [
+            0,
+            70
+          ]
+        ],
+        "pixel_auroc": 0.6782453814589253,
+        "f1": 0.89171974522293,
+        "precision": 0.8045977011494253,
+        "recall": 1.0,
+        "f2": 0.9536784741144414,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 1.0,
+        "latency_ms": 23.930603011471792,
+        "unavailable": {}
+      },
+      "fusion": {
+        "image_auroc": 0.865546218487395,
+        "accuracy": 0.8390804597701149,
+        "balanced_accuracy": 0.6550420168067227,
+        "average_precision": 0.9558831967211721,
+        "confusion_matrix": [
+          [
+            6,
+            11
+          ],
+          [
+            3,
+            67
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.9054054054054054,
+        "precision": 0.8589743589743589,
+        "recall": 0.9571428571428572,
+        "f2": 0.9357541899441341,
+        "false_accept_rate": 0.04285714285714286,
+        "false_reject_rate": 0.6470588235294118,
+        "latency_ms": 23.930603011471792,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "latency_scope": "joint RGB+depth pipeline"
+    },
+    {
+      "category": "dowel",
+      "depth": {
+        "image_auroc": 0.7693631669535284,
+        "accuracy": 0.7980769230769231,
+        "balanced_accuracy": 0.5,
+        "average_precision": 0.9329775131465943,
+        "confusion_matrix": [
+          [
+            0,
+            21
+          ],
+          [
+            0,
+            83
+          ]
+        ],
+        "pixel_auroc": 0.8807838588954037,
+        "f1": 0.8877005347593583,
+        "precision": 0.7980769230769231,
+        "recall": 1.0,
+        "f2": 0.9518348623853211,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 1.0,
+        "latency_ms": 23.012181509049977,
+        "unavailable": {}
+      },
+      "fusion": {
+        "image_auroc": 0.9845094664371773,
+        "accuracy": 0.9423076923076923,
+        "balanced_accuracy": 0.9282845668387837,
+        "average_precision": 0.9964471337353695,
+        "confusion_matrix": [
+          [
+            19,
+            2
+          ],
+          [
+            4,
+            79
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.9634146341463414,
+        "precision": 0.9753086419753086,
+        "recall": 0.9518072289156626,
+        "f2": 0.9564164648910412,
+        "false_accept_rate": 0.04819277108433735,
+        "false_reject_rate": 0.09523809523809523,
+        "latency_ms": 23.012181509049977,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "latency_scope": "joint RGB+depth pipeline"
+    },
+    {
+      "category": "tire",
+      "depth": {
+        "image_auroc": 0.6792857142857143,
+        "accuracy": 0.7777777777777778,
+        "balanced_accuracy": 0.5,
+        "average_precision": 0.9000330636377984,
+        "confusion_matrix": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            70
+          ]
+        ],
+        "pixel_auroc": 0.778337036303725,
+        "f1": 0.875,
+        "precision": 0.7777777777777778,
+        "recall": 1.0,
+        "f2": 0.9459459459459459,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 1.0,
+        "latency_ms": 52.75048976642817,
+        "unavailable": {}
+      },
+      "fusion": {
+        "image_auroc": 0.6228571428571429,
+        "accuracy": 0.7777777777777778,
+        "balanced_accuracy": 0.5178571428571429,
+        "average_precision": 0.8708574450269557,
+        "confusion_matrix": [
+          [
+            1,
+            19
+          ],
+          [
+            1,
+            69
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.8734177215189873,
+        "precision": 0.7840909090909091,
+        "recall": 0.9857142857142858,
+        "f2": 0.9375,
+        "false_accept_rate": 0.014285714285714285,
+        "false_reject_rate": 0.95,
+        "latency_ms": 52.75048976642817,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "latency_scope": "joint RGB+depth pipeline"
+    }
+  ],
+  "roi": [
+    {
+      "category": "cable",
+      "extractor": "OpenCVROIExtractor",
+      "evaluation_scope": "frozen final holdout",
+      "mode": "inference_only_ablation",
+      "full_frame_metrics": {
+        "image_auroc": 0.9717978848413631,
+        "accuracy": 0.9,
+        "balanced_accuracy": 0.9024676850763806,
+        "average_precision": 0.9843276598643886,
+        "confusion_matrix": [
+          [
+            42,
+            4
+          ],
+          [
+            8,
+            66
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.9166666666666666,
+        "precision": 0.9428571428571428,
+        "recall": 0.8918918918918919,
+        "f2": 0.9016393442622951,
+        "false_accept_rate": 0.10810810810810811,
+        "false_reject_rate": 0.08695652173913043,
+        "latency_ms": 134.99333049185225,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics": {
+        "image_auroc": 0.9206815511163338,
+        "accuracy": 0.625,
+        "balanced_accuracy": 0.5108695652173914,
+        "average_precision": 0.9617033110679719,
+        "confusion_matrix": [
+          [
+            1,
+            45
+          ],
+          [
+            0,
+            74
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.7668393782383419,
+        "precision": 0.6218487394957983,
+        "recall": 1.0,
+        "f2": 0.891566265060241,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 0.9782608695652174,
+        "latency_ms": 1077.4464715084225,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics_unavailable": null,
+      "note": "No improvement claim is made. Separate ROI training/calibration is needed for deployment."
+    },
+    {
+      "category": "screw",
+      "extractor": "OpenCVROIExtractor",
+      "evaluation_scope": "frozen final holdout",
+      "mode": "inference_only_ablation",
+      "full_frame_metrics": {
+        "image_auroc": 0.9384370015948964,
+        "accuracy": 0.8671875,
+        "balanced_accuracy": 0.8511961722488038,
+        "average_precision": 0.9770936416944458,
+        "confusion_matrix": [
+          [
+            27,
+            6
+          ],
+          [
+            11,
+            84
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.9081081081081082,
+        "precision": 0.9333333333333333,
+        "recall": 0.8842105263157894,
+        "f2": 0.8936170212765957,
+        "false_accept_rate": 0.11578947368421053,
+        "false_reject_rate": 0.18181818181818182,
+        "latency_ms": 86.07475490634897,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics": {
+        "image_auroc": 0.5177033492822966,
+        "accuracy": 0.7421875,
+        "balanced_accuracy": 0.5,
+        "average_precision": 0.7413108788227506,
+        "confusion_matrix": [
+          [
+            0,
+            33
+          ],
+          [
+            0,
+            95
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.852017937219731,
+        "precision": 0.7421875,
+        "recall": 1.0,
+        "f2": 0.9350393700787402,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 1.0,
+        "latency_ms": 302.14185870306665,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics_unavailable": null,
+      "note": "No improvement claim is made. Separate ROI training/calibration is needed for deployment."
+    },
+    {
+      "category": "transistor",
+      "extractor": "OpenCVROIExtractor",
+      "evaluation_scope": "frozen final holdout",
+      "mode": "inference_only_ablation",
+      "full_frame_metrics": {
+        "image_auroc": 0.9889322916666666,
+        "accuracy": 0.9625,
+        "balanced_accuracy": 0.9583333333333333,
+        "average_precision": 0.9864838917258272,
+        "confusion_matrix": [
+          [
+            47,
+            1
+          ],
+          [
+            2,
+            30
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.9523809523809523,
+        "precision": 0.967741935483871,
+        "recall": 0.9375,
+        "f2": 0.9433962264150944,
+        "false_accept_rate": 0.0625,
+        "false_reject_rate": 0.020833333333333332,
+        "latency_ms": 144.64376877476752,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics": {
+        "image_auroc": 0.7428385416666666,
+        "accuracy": 0.4,
+        "balanced_accuracy": 0.5,
+        "average_precision": 0.7450463445179434,
+        "confusion_matrix": [
+          [
+            0,
+            48
+          ],
+          [
+            0,
+            32
+          ]
+        ],
+        "pixel_auroc": null,
+        "f1": 0.5714285714285714,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f2": 0.7692307692307693,
+        "false_accept_rate": 0.0,
+        "false_reject_rate": 1.0,
+        "latency_ms": 1004.1432562496993,
+        "unavailable": {
+          "pixel_auroc": "Ground truth mask unavailable"
+        }
+      },
+      "roi_metrics_unavailable": null,
+      "note": "No improvement claim is made. Separate ROI training/calibration is needed for deployment."
+    }
+  ],
+  "d2s": null
+}

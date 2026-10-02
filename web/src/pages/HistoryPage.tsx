@@ -67,7 +67,7 @@ export const HistoryPage: React.FC = () => {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</label>
-              <Select value={filters.product_id || 'all'} onValueChange={(v) => handleFilterChange('product_id', v)}>
+              <Select value={filters.product_id || 'all'} onValueChange={(v: string) => handleFilterChange('product_id', v)}>
                 <SelectTrigger className="bg-secondary/30 h-10">
                   <SelectValue placeholder="All Products" />
                 </SelectTrigger>
@@ -81,7 +81,7 @@ export const HistoryPage: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Decision</label>
-              <Select value={filters.decision || 'all'} onValueChange={(v) => handleFilterChange('decision', v)}>
+              <Select value={filters.decision || 'all'} onValueChange={(v: string) => handleFilterChange('decision', v)}>
                 <SelectTrigger className="bg-secondary/30 h-10">
                   <SelectValue placeholder="All Decisions" />
                 </SelectTrigger>
@@ -153,10 +153,12 @@ export const HistoryPage: React.FC = () => {
                       <DecisionBadge decision={insp.decision} size="sm" />
                     </TableCell>
                     <TableCell className="text-foreground font-mono font-medium">
-                      {(insp.anomaly_score * 100).toFixed(1)}%
+                      {insp.anomaly_score.toFixed(3)}
                     </TableCell>
                     <TableCell className="text-foreground font-mono font-medium">
-                      {(insp.confidence * 100).toFixed(1)}%
+                      {insp.confidence === 0
+                        ? 'Unavailable'
+                        : `${(insp.confidence * 100).toFixed(1)}%`}
                     </TableCell>
                     <TableCell className="text-muted-foreground font-mono text-xs">
                       {insp.processing_time_ms}ms
