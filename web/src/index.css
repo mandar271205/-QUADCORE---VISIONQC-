@@ -3,6 +3,38 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 188.7 94.5% 42.7%; /* vqc-accent cyan-like */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 188.7 94.5% 42.7%;
+
+    --radius: 0.5rem;
+  }
+  
   * {
     box-sizing: border-box;
   }
@@ -31,6 +63,7 @@
 }
 
 @layer components {
+  /* Legacy styles for compatibility during transition */
   .card {
     @apply bg-vqc-surface border border-vqc-border rounded-xl p-6;
   }
@@ -62,27 +95,6 @@
   .badge-review {
     @apply bg-amber-500/15 text-vqc-review text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-500/25;
   }
-
-  .input {
-    @apply bg-vqc-panel border border-vqc-border rounded-lg px-3 py-2.5 text-vqc-text placeholder-vqc-muted text-sm focus:outline-none focus:border-vqc-accent transition-colors;
-    width: 100%;
-  }
-
-  .label {
-    @apply text-vqc-muted text-xs font-medium uppercase tracking-wide mb-1.5 block;
-  }
-
-  .stat-value {
-    @apply text-2xl font-bold text-vqc-text;
-  }
-
-  .stat-label {
-    @apply text-vqc-muted text-xs font-medium uppercase tracking-wide mt-1;
-  }
-
-  .section-title {
-    @apply text-lg font-semibold text-vqc-text mb-4;
-  }
 }
 
 /* Decision badge animations */
@@ -104,7 +116,6 @@
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.15); }
 }
 
-/* Loading spinner */
 .spinner {
   border: 2px solid rgba(255,255,255,0.1);
   border-top-color: #3b82f6;

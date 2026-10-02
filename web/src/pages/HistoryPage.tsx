@@ -5,6 +5,11 @@ import { getInspections } from '../api/inspections';
 import { getProducts } from '../api/products';
 import type { InspectionListItem, Product } from '../types';
 import { DecisionBadge } from '../components/common/DecisionBadge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export const HistoryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,8 +33,8 @@ export const HistoryPage: React.FC = () => {
       const res = await getInspections({
         page,
         page_size: 20,
-        ...(filters.product_id ? { product_id: filters.product_id } : {}),
-        ...(filters.decision ? { decision: filters.decision } : {}),
+        ...(filters.product_id && filters.product_id !== 'all' ? { product_id: filters.product_id } : {}),
+        ...(filters.decision && filters.decision !== 'all' ? { decision: filters.decision } : {}),
         ...(filters.date_from ? { date_from: filters.date_from } : {}),
         ...(filters.date_to ? { date_to: filters.date_to } : {}),
       });
@@ -50,121 +55,146 @@ export const HistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-vqc-text">Inspection History</h1>
-        <p className="text-vqc-muted text-sm mt-1">{total} total inspections</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Inspection History</h1>
+        <p className="text-muted-foreground mt-1">Search and filter {total} past inspections</p>
       </div>
 
       {/* Filters */}
-      <div className="card">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="label">Product</label>
-            <select className="input" value={filters.product_id}
-              onChange={e => handleFilterChange('product_id', e.target.value)}>
-              <option value="">All Products</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+      <Card className="shadow-sm border-border bg-card">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</label>
+              <Select value={filters.product_id || 'all'} onValueChange={(v) => handleFilterChange('product_id', v)}>
+                <SelectTrigger className="bg-secondary/30 h-10">
+                  <SelectValue placeholder="All Products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  {products.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Decision</label>
+              <Select value={filters.decision || 'all'} onValueChange={(v) => handleFilterChange('decision', v)}>
+                <SelectTrigger className="bg-secondary/30 h-10">
+                  <SelectValue placeholder="All Decisions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="PASS">PASS</SelectItem>
+                  <SelectItem value="FAIL">FAIL</SelectItem>
+                  <SelectItem value="REVIEW">REVIEW</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">From Date</label>
+              <Input 
+                type="date" 
+                value={filters.date_from}
+                onChange={e => handleFilterChange('date_from', e.target.value)} 
+                className="bg-secondary/30 h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">To Date</label>
+              <Input 
+                type="date" 
+                value={filters.date_to}
+                onChange={e => handleFilterChange('date_to', e.target.value)} 
+                className="bg-secondary/30 h-10"
+              />
+            </div>
           </div>
-          <div>
-            <label className="label">Decision</label>
-            <select className="input" value={filters.decision}
-              onChange={e => handleFilterChange('decision', e.target.value)}>
-              <option value="">All</option>
-              <option value="PASS">PASS</option>
-              <option value="FAIL">FAIL</option>
-              <option value="REVIEW">REVIEW</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">From</label>
-            <input type="date" className="input" value={filters.date_from}
-              onChange={e => handleFilterChange('date_from', e.target.value)} />
-          </div>
-          <div>
-            <label className="label">To</label>
-            <input type="date" className="input" value={filters.date_to}
-              onChange={e => handleFilterChange('date_to', e.target.value)} />
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Table */}
-      <div className="card">
-        {loading ? (
-          <div className="flex justify-center py-12"><div className="spinner w-8 h-8" /></div>
-        ) : items.length === 0 ? (
-          <p className="text-vqc-muted text-sm text-center py-12">No inspections found matching filters.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-vqc-border">
+      <Card className="shadow-sm border-border bg-card">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="spinner w-8 h-8 border-primary/20 border-t-primary" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-16">
+              <Filter className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-muted-foreground text-sm font-medium">No inspections found matching filters.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-secondary/30">
+                <TableRow className="border-border">
                   {['Timestamp', 'Product', 'Decision', 'Anomaly Score', 'Confidence', 'Time (ms)'].map(h => (
-                    <th key={h} className="text-left text-vqc-muted font-medium py-3 px-3 text-xs uppercase">{h}</th>
+                    <TableHead key={h} className="text-muted-foreground font-semibold text-xs uppercase tracking-wider h-11">{h}</TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map(insp => (
-                  <tr
+                  <TableRow
                     key={insp.inspection_id}
-                    className="border-b border-vqc-border/50 hover:bg-vqc-panel/50 cursor-pointer transition-colors"
+                    className="border-border/50 hover:bg-secondary/40 cursor-pointer transition-colors"
                     onClick={() => navigate(`/history/${insp.inspection_id}`)}
                   >
-                    <td className="py-3 px-3 text-vqc-muted text-xs font-mono">
+                    <TableCell className="text-muted-foreground font-mono text-xs">
                       {new Date(insp.created_at).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-vqc-text">
-                      {insp.product?.name ?? <span className="text-vqc-muted">—</span>}
-                    </td>
-                    <td className="py-3 px-3">
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {insp.product?.name ?? <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell>
                       <DecisionBadge decision={insp.decision} size="sm" />
-                    </td>
-                    <td className="py-3 px-3 font-mono text-vqc-text">
+                    </TableCell>
+                    <TableCell className="text-foreground font-mono font-medium">
                       {(insp.anomaly_score * 100).toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-3 font-mono text-vqc-text">
+                    </TableCell>
+                    <TableCell className="text-foreground font-mono font-medium">
                       {(insp.confidence * 100).toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-3 font-mono text-vqc-muted">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-xs">
                       {insp.processing_time_ms}ms
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+        
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-vqc-border">
-            <span className="text-vqc-muted text-sm">
+          <div className="flex items-center justify-between p-4 border-t border-border bg-secondary/10 rounded-b-xl">
+            <span className="text-muted-foreground text-sm font-medium">
               Page {page} of {totalPages}
             </span>
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="btn-secondary p-2"
               >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
+                <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="btn-secondary p-2"
               >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+                Next <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

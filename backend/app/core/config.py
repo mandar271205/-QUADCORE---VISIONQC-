@@ -25,15 +25,15 @@ class Settings(BaseSettings):
 
     # Google Gemini
     GOOGLE_API_KEY: str = ""
-    GOOGLE_VLM_MODEL: str = "gemini-1.5-flash-latest"
+    GOOGLE_VLM_MODEL: str = "gemini-3.8-flash"
 
     # Groq
     GROQ_API_KEY: str = ""
-    GROQ_VLM_MODEL: str = "llama-3.2-11b-vision-preview"
+    GROQ_VLM_MODEL: str = "qwen/qwen3.8-27b"
 
     # NVIDIA NIM
     NVIDIA_API_KEY: str = ""
-    NVIDIA_VLM_MODEL: str = "microsoft/phi-3.5-vision-instruct"
+    NVIDIA_VLM_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
     NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
 
     # Inspection

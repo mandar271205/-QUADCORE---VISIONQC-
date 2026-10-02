@@ -6,21 +6,23 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card, ActivityIndicator as PaperActivityIndicator, MD3DarkTheme, Provider as PaperProvider } from 'react-native-paper';
 import { runInspection, getProducts } from '../../src/api';
 import type { InspectionResponse, Product } from '../../src/types';
 
 const COLORS = {
-  bg: '#0f1117',
-  surface: '#1a1d27',
-  panel: '#21263a',
-  border: '#2d3348',
-  text: '#e2e8f0',
-  muted: '#8b92a5',
-  pass: '#22c55e',
-  fail: '#ef4444',
-  review: '#f59e0b',
-  accent: '#3b82f6',
+  bg: '#0F172A',
+  surface: '#1E293B',
+  panel: '#1E293B',
+  border: '#334155',
+  text: '#F8FAFC',
+  muted: '#94A3B8',
+  pass: '#22C55E',
+  fail: '#EF4444',
+  review: '#F59E0B',
+  accent: '#06B6D4',
 };
 
 const decisionColors = {
@@ -124,26 +126,29 @@ export default function InspectScreen() {
           </View>
         </CameraView>
         {/* Controls */}
-        <View style={styles.cameraControls}>
+        <BlurView intensity={80} tint="dark" style={styles.cameraControls}>
           <TouchableOpacity onPress={pickImage} style={styles.cameraBtn}>
-            <Text style={[styles.muted, { fontSize: 12 }]}>Gallery</Text>
+            <Text style={[styles.muted, { fontSize: 12, color: '#fff' }]}>Gallery</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={capture} style={styles.captureBtn} />
           <TouchableOpacity
             onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
             style={styles.cameraBtn}
           >
-            <Text style={[styles.muted, { fontSize: 12 }]}>Flip</Text>
+            <Text style={[styles.muted, { fontSize: 12, color: '#fff' }]}>Flip</Text>
           </TouchableOpacity>
-        </View>
+        </BlurView>
         <TouchableOpacity onPress={() => setStage('idle')} style={styles.backBtn}>
-          <Text style={[styles.muted, { fontSize: 14 }]}>✕ Cancel</Text>
+          <BlurView intensity={50} tint="dark" style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>✕ Cancel</Text>
+          </BlurView>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
+    <PaperProvider theme={MD3DarkTheme}>
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
@@ -187,7 +192,7 @@ export default function InspectScreen() {
         {/* Inspecting indicator */}
         {stage === 'inspecting' && (
           <View style={[styles.card, { alignItems: 'center', paddingVertical: 32 }]}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
+            <PaperActivityIndicator animating={true} size="large" color={COLORS.accent} />
             <Text style={[styles.text, { marginTop: 16, fontWeight: '600' }]}>Inspecting unit...</Text>
             <Text style={[styles.muted, { marginTop: 8, fontSize: 13 }]}>Analyzing image quality</Text>
           </View>
@@ -271,32 +276,33 @@ export default function InspectScreen() {
         <View style={{ gap: 10, marginTop: 4 }}>
           {stage === 'idle' && (
             <>
-              <TouchableOpacity style={styles.btnPrimary} onPress={() => setStage('camera')}>
-                <Text style={styles.btnText}>📷  Open Camera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.btnSecondary} onPress={pickImage}>
-                <Text style={[styles.btnText, { color: COLORS.text }]}>⬆  Upload from Gallery</Text>
-              </TouchableOpacity>
+              <Button mode="contained" buttonColor={COLORS.accent} textColor="#fff" onPress={() => setStage('camera')} style={{ borderRadius: 8 }}>
+                📷 Open Camera
+              </Button>
+              <Button mode="outlined" textColor={COLORS.text} onPress={pickImage} style={{ borderRadius: 8, borderColor: COLORS.border }}>
+                ⬆ Upload from Gallery
+              </Button>
             </>
           )}
           {(stage === 'preview' || stage === 'error') && (
             <>
-              <TouchableOpacity style={styles.btnPrimary} onPress={inspect}>
-                <Text style={styles.btnText}>🔍  INSPECT UNIT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.btnSecondary} onPress={reset}>
-                <Text style={[styles.btnText, { color: COLORS.text }]}>↩  Retake</Text>
-              </TouchableOpacity>
+              <Button mode="contained" buttonColor={COLORS.accent} textColor="#fff" onPress={inspect} style={{ borderRadius: 8 }}>
+                🔍 INSPECT UNIT
+              </Button>
+              <Button mode="outlined" textColor={COLORS.text} onPress={reset} style={{ borderRadius: 8, borderColor: COLORS.border }}>
+                ↩ Retake
+              </Button>
             </>
           )}
           {stage === 'result' && (
-            <TouchableOpacity style={styles.btnSecondary} onPress={reset}>
-              <Text style={[styles.btnText, { color: COLORS.text }]}>↩  Inspect Next Unit</Text>
-            </TouchableOpacity>
+            <Button mode="outlined" textColor={COLORS.text} onPress={reset} style={{ borderRadius: 8, borderColor: COLORS.border }}>
+              ↩ Inspect Next Unit
+            </Button>
           )}
         </View>
       </ScrollView>
     </SafeAreaView>
+    </PaperProvider>
   );
 }
 
@@ -370,6 +376,6 @@ const styles = StyleSheet.create({
   cameraBtn: { width: 60, alignItems: 'center' },
   backBtn: {
     position: 'absolute', top: 50, left: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, overflow: 'hidden',
   },
 });
