@@ -1,0 +1,92 @@
+[
+  {
+    "dataset": "mvtec_ad",
+    "category": "screw",
+    "url": "https://www.mydrive.ch/shares/150461/242f454cc6385e5693c4fd4b94567d1e/download/420938130-1629960389/screw.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad",
+    "category": "cable",
+    "url": "https://www.mydrive.ch/shares/150453/10f960e07fec2838b2cd512586633a32/download/420937413-1629958794/cable.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad",
+    "category": "transistor",
+    "url": "https://www.mydrive.ch/shares/150464/99b8ea0332438d64fcc2475ee73f9c29/download/420938166-1629960554/transistor.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad",
+    "category": "metal_nut",
+    "url": "https://www.mydrive.ch/shares/150459/c68856a21dca589b0f8ff6d4ee0f18f4/download/420937637-1629959294/metal_nut.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad",
+    "category": "capsule",
+    "url": "https://www.mydrive.ch/shares/150454/e0ce6dd74eb150f46c0d98131b3703f2/download/420937454-1629958872/capsule.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad",
+    "category": "bottle",
+    "url": "https://www.mydrive.ch/shares/150452/132a93367fb17cdf968dfb5c4013f6e7/download/420937370-1629958698/bottle.tar.xz"
+  },
+  {
+    "dataset": "mvtec_ad2",
+    "category": "sheet_metal",
+    "url": "https://www.mydrive.ch/shares/121505/2d8fcdc8e988456bdd18696746eda0a0/download/466654829-1743166795/sheet_metal.tar.gz"
+  },
+  {
+    "dataset": "mvtec_ad2",
+    "category": "vial",
+    "url": "https://www.mydrive.ch/shares/121506/739dc6459c939fe464c0d26acc6c2d55/download/466654885-1743167505/vial.tar.gz"
+  },
+  {
+    "dataset": "mvtec_ad2",
+    "category": "wallplugs",
+    "url": "https://www.mydrive.ch/shares/121507/66fe6e114b498e03be8d48c711794be7/download/466655287-1743168151/wallplugs.tar.gz"
+  },
+  {
+    "dataset": "mvtec_ad2",
+    "category": "can",
+    "url": "https://www.mydrive.ch/shares/121501/26456e2f3ef813930866f8f9b072593a/download/466651130-1743159807/can.tar.gz"
+  },
+  {
+    "dataset": "mvtec_loco",
+    "category": "screw_bag",
+    "url": "https://www.mydrive.ch/shares/48241/be5dc3a69c92932644aaac945451d4e7/download/430647115-1646843129/screw_bag.tar.xz"
+  },
+  {
+    "dataset": "mvtec_loco",
+    "category": "splicing_connectors",
+    "url": "https://www.mydrive.ch/shares/48242/9202635b7b15beba2ceea1674c7deebc/download/430647132-1646843288/splicing_connectors.tar.xz"
+  },
+  {
+    "dataset": "mvtec_loco",
+    "category": "breakfast_box",
+    "url": "https://www.mydrive.ch/shares/48238/d94999f7d56b82c26cc22e36a8cfe02b/download/430647124-1646843193/breakfast_box.tar.xz"
+  },
+  {
+    "dataset": "d2s",
+    "category": "annotations",
+    "url": "https://www.mydrive.ch/shares/39000/993e79a47832a8ea7208a14d8b277c35/download/420938386-1629953481/d2s_annotations_v1.1.tar.xz"
+  },
+  {
+    "dataset": "d2s",
+    "category": "images",
+    "url": "https://www.mydrive.ch/shares/39000/993e79a47832a8ea7208a14d8b277c35/download/420938639-1629953496/d2s_images_v1.tar.xz"
+  },
+  {
+    "dataset": "mvtec_3d_ad",
+    "category": "cable_gland",
+    "url": "https://www.mydrive.ch/shares/45892/8836f2fd7407ec1c54dc165a5b8a2e91/download/428792309-1643274318/cable_gland.tar.xz"
+  },
+  {
+    "dataset": "mvtec_3d_ad",
+    "category": "dowel",
+    "url": "https://www.mydrive.ch/shares/45895/4bc9099f7976819d8d458453e831fc7c/download/428793974-1643275086/dowel.tar.xz"
+  },
+  {
+    "dataset": "mvtec_3d_ad",
+    "category": "tire",
+    "url": "https://www.mydrive.ch/shares/45900/c8261149763d942e033a22a0e8597b5d/download/428798689-1643276973/tire.tar.xz"
+  }
+]

@@ -106,8 +106,24 @@ npx expo start
 ## 🧠 Pluggable ML Engine
 
 VisionQC features an adapter layer (`app/services/ml/base.py`) separating the inspection routing from the underlying vision model:
-- **`MockMLEngine`**: Active by default for instant local execution without GPU/cloud overhead. Generates realistic surface anomalies, confidence scores, and Gaussian anomaly heatmaps.
-- **`BaseMLEngine`**: Abstract class for future PatchCore, PaDiM, or EfficientAD models.
-- **Zero Frontend Changes**: When trained models are plugged into the adapter, the REST schemas remain completely identical, requiring **zero frontend modifications**.
+- **`MockMLEngine`**: Available only with explicit `DEMO_MODE=true` for synthetic demonstrations. Unavailable real engines do not silently return demo results.
+- **`BaseMLEngine`**: Shared adapter used by saved Autoencoder, PaDiM, PatchCore and ensemble profiles.
+- **Compatible inspection responses**: Saved profiles use the existing inspection response. Product profile attachment and experiment comparison APIs provide the new administration and reporting screens.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full implementation details.
+
+### Member 2 ML baselines
+
+Autoencoder and Anomalib PaDiM training, shared MVTec subset manifests, fair
+comparison exports, saved backend profiles, and optional ROI experiments are
+available. See [the Member 2 runbook](docs/MEMBER2_ML.md) for setup, Member 1's
+PatchCore handoff contract, commands, and the remaining real-data requirements.
+
+The expanded real-data workflow downloads the categories linked in the training
+plan and selects parameters and thresholds using development F2. See
+[the F2 training runbook](docs/TRAINING_F2.md) for cleaning, frozen splits,
+the separate 30-shot comparison, D2S segmentation, depth fusion, and live/final
+result locations.
+
+For the exported real models, current local ports, upload verification, and a
+section-by-section 7.1–7.11 handoff, see [the deployment guide](docs/DEPLOYMENT.md).

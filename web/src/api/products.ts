@@ -1,6 +1,24 @@
 import apiClient from './client';
 import type { Product, ProductCreate, ProductUpdate, ReferenceImage } from '../types';
 
+export interface TrainedProfile {
+  id: string;
+  label: string;
+  dataset: string;
+  category: string;
+  metrics: { f2: number; precision: number; recall: number; accuracy: number; false_reject_rate?: number | null };
+}
+
+export async function getTrainedProfiles(): Promise<TrainedProfile[]> {
+  const { data } = await apiClient.get<TrainedProfile[]>('/products/trained-profiles');
+  return data;
+}
+
+export async function assignModelProfile(id: string, profileId: string): Promise<Product> {
+  const { data } = await apiClient.put<Product>(`/products/${id}/model-profile`, { profile_id: profileId });
+  return data;
+}
+
 export async function getProducts(): Promise<Product[]> {
   const { data } = await apiClient.get<Product[]>('/products');
   return data;

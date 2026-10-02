@@ -3,7 +3,7 @@ Inspection Router - orchestrates which engines to use based on INSPECTION_MODE.
 
 Modes:
   vlm_primary         - Try VLMs in order (Gemini → Groq → NVIDIA). Default.
-  vlm_only            - VLM only, no ML fallback. Always used for mobile.
+  vlm_only            - VLM only, no ML fallback. Mobile default unless MOBILE_USE_ML.
   model_primary       - Try ML model first, fallback to VLM.
   model_only          - ML only (no VLM). Requires trained model.
   parallel_first_valid- Run ML + VLM in parallel, take first valid result.
@@ -41,7 +41,7 @@ def _apply_threshold(
     Otherwise → PASS/FAIL based on threshold.
     """
     margin = settings.REVIEW_MARGIN
-    if abs(score - threshold) <= margin:
+    if margin > 0 and abs(score - threshold) <= margin:
         return Decision.REVIEW
     if score > threshold:
         # For VLM results, also respect VLM's own decision
@@ -83,7 +83,7 @@ def _ml_to_internal(
     import io
     final_decision = _apply_threshold(
         ml_result.anomaly_score,
-        ml_result.confidence or 0.85,
+        ml_result.confidence if ml_result.confidence is not None else 0.0,
         threshold,
     )
 
@@ -104,13 +104,16 @@ def _ml_to_internal(
     return InternalInspectionResult(
         decision=final_decision,
         anomaly_score=ml_result.anomaly_score,
-        confidence=ml_result.confidence or 0.85,
+        confidence=ml_result.confidence if ml_result.confidence is not None else 0.0,
         defects=defects or ml_result.defects,
-        summary="Inspection complete.",
+        summary=("Anomalous region detected." if final_decision == Decision.FAIL else
+                 "No anomaly detected above the inspection threshold." if final_decision == Decision.PASS else
+                 "Score is close to the threshold. Manual review recommended."),
         anomaly_map=anomaly_map_bytes,
         engine_type="ml",
         provider=ml_result.model_name,  # internal only
         latency_ms=ml_result.latency_ms,
+        roi_region=getattr(ml_result,'roi_region',None),
     )
 
 
@@ -133,7 +136,7 @@ class InspectionRouter:
         Failures from individual providers are caught and fallback is attempted.
         """
         # Mobile always uses VLM only
-        if client_type == "mobile":
+        if client_type == "mobile" and not settings.MOBILE_USE_ML:
             effective_mode = "vlm_only"
         elif mode_override and mode_override in (
             "vlm_primary", "vlm_only", "model_primary", "model_only", "parallel_first_valid"
@@ -169,8 +172,7 @@ class InspectionRouter:
         """Try VLMs in order: Gemini → Groq → NVIDIA."""
         engines = VLMRegistry.get_ordered_engines()
         if not engines:
-            logger.info("[Router] No external VLM API keys configured - running local inspection engine")
-            return await self._run_demo(image_bytes, product_context)
+            raise AllProvidersFailedError()
 
         last_error = None
         for engine in engines:
@@ -191,8 +193,7 @@ class InspectionRouter:
                 logger.warning(f"[Router] VLM engine error: {type(e).__name__}: {e}")
                 last_error = e
 
-        logger.warning("[Router] All external VLM engines failed - falling back to local inspection engine")
-        return await self._run_demo(image_bytes, product_context)
+        raise AllProvidersFailedError()
 
     async def _model_primary(
         self,

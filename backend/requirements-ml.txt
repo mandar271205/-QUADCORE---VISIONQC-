@@ -1,0 +1,7 @@
+# Optional experiment stack; base backend/demo does not import torch or anomalib.
+# Tested with Python 3.12 on macOS CPU. Python 3.11/3.12 recommended.
+-r requirements.txt
+torch==2.14.1
+torchvision==0.29.1
+anomalib==2.3.0
+scikit-learn==1.9.1
