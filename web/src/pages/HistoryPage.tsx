@@ -125,10 +125,10 @@ export const HistoryPage: React.FC = () => {
                       <DecisionBadge decision={insp.decision} size="sm" />
                     </td>
                     <td className="py-3 px-3 font-mono text-vqc-text">
-                      {(insp.anomaly_score * 100).toFixed(1)}%
+                      {insp.anomaly_score.toFixed(3)}
                     </td>
                     <td className="py-3 px-3 font-mono text-vqc-text">
-                      {(insp.confidence * 100).toFixed(1)}%
+                      {insp.confidence === 0 ? 'Unavailable' : `${(insp.confidence * 100).toFixed(1)}%`}
                     </td>
                     <td className="py-3 px-3 font-mono text-vqc-muted">
                       {insp.processing_time_ms}ms

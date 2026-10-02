@@ -9,6 +9,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { InspectionDetailPage } from './pages/InspectionDetailPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ComparisonPage } from './pages/ComparisonPage';
 
 const App: React.FC = () => {
   return (
@@ -23,6 +24,7 @@ const App: React.FC = () => {
           <Route path="/history/:id" element={<InspectionDetailPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/comparison" element={<ComparisonPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

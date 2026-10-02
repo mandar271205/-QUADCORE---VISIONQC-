@@ -4,6 +4,7 @@ from uuid import UUID
 from datetime import datetime
 from app.db.models import Decision, ClientType
 from app.schemas.defects import DefectResponse
+from app.schemas.common import UTCResponse
 
 
 class InspectionRequest(BaseModel):
@@ -19,7 +20,7 @@ class ProductSummaryInInspection(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class InspectionResponse(BaseModel):
+class InspectionResponse(UTCResponse):
     """Public API response - NO provider/engine info."""
     inspection_id: UUID
     product: Optional[ProductSummaryInInspection] = None
@@ -37,7 +38,7 @@ class InspectionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class InspectionListItem(BaseModel):
+class InspectionListItem(UTCResponse):
     inspection_id: UUID
     product: Optional[ProductSummaryInInspection] = None
     decision: Decision
@@ -73,3 +74,4 @@ class InternalInspectionResult(BaseModel):
     provider: str = "unknown"                     # internal
     latency_ms: int = 0                           # internal
     raw_response: Optional[str] = None            # internal debug
+    roi_region: Optional[dict] = None              # internal; drawn into heatmap

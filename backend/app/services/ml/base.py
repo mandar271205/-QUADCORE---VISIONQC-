@@ -18,12 +18,13 @@ class MLInspectionResult:
     
     The ML team must return this structure from their engine.
     """
-    anomaly_score: float                     # 0.0–1.0 normalized
+    anomaly_score: float                     # 0.0–1.0 display scale, not defect probability
     confidence: Optional[float] = None       # optional, 0.0–1.0
     anomaly_map: Optional[np.ndarray] = None # 2D heatmap array, same size as input or smaller
     defects: list = field(default_factory=list)
     latency_ms: int = 0
     model_name: str = "unknown"              # internal debug only
+    roi_region: Optional[dict] = None        # normalized product box, internal
 
 
 class BaseMLEngine(ABC):
@@ -61,7 +62,7 @@ class BaseMLEngine(ABC):
         """Run inference on image bytes.
         
         Args:
-            image_bytes: Preprocessed JPEG bytes
+            image_bytes: Validated image bytes (lossless PNG for model-only inference)
             product_id: UUID string for product-specific model loading
             
         Returns:

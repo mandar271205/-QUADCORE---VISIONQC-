@@ -111,7 +111,7 @@ export const InspectionPage: React.FC = () => {
                   <p className="text-xs mt-1">Use file upload instead.</p>
                 </div>
               )}
-              {(stage === 'preview' || stage === 'inspecting') && capturedImage && (
+              {(stage === 'preview' || stage === 'inspecting' || stage === 'result' || stage === 'error') && capturedImage && (
                 <img src={capturedImage} alt="Preview" className="w-full h-full object-contain" />
               )}
               {stage === 'inspecting' && (
@@ -187,13 +187,14 @@ export const InspectionPage: React.FC = () => {
               <div>
                 <label className="label">Product</label>
                 <select
+                  aria-label="Product"
                   value={selectedProduct}
                   onChange={(e) => setSelectedProduct(e.target.value)}
                   className="input"
                 >
-                  <option value="">Select Product (optional)</option>
+                  <option value="">Select Product</option>
                   {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} — {p.code}</option>
+                    <option key={p.id} value={p.id}>{p.name} — {p.code}{p.model_status === 'ready' ? ' · Profile ready' : ''}</option>
                   ))}
                 </select>
               </div>
@@ -201,11 +202,12 @@ export const InspectionPage: React.FC = () => {
                 <label className="label">Sensitivity Threshold</label>
                 <div className="input flex items-center text-vqc-text bg-vqc-panel cursor-default">
                   {selectedProductData
-                    ? `${(selectedProductData.threshold * 100).toFixed(0)}%`
-                    : 'Default (55%)'}
+                    ? selectedProductData.threshold.toFixed(2)
+                    : 'Default (0.55)'}
                 </div>
               </div>
             </div>
+            <p className="text-xs text-vqc-muted mt-3">For a trained profile, choose the product that matches the uploaded image.</p>
           </div>
 
           {/* Error */}

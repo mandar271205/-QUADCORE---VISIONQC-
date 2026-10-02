@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import apiClient from '../../api/client';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,10 +18,21 @@ const navItems = [
   { to: '/products', icon: Package, label: 'Products' },
   { to: '/history', icon: ClipboardList, label: 'History' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+  { to: '/comparison', icon: BarChart2, label: 'Model Comparison' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export const Sidebar: React.FC = () => {
+  const [status, setStatus] = useState<'CHECKING' | 'READY' | 'UNAVAILABLE'>('CHECKING');
+  useEffect(() => {
+    let active = true;
+    const check = () => apiClient.get<{inspection_available:boolean}>('/system/status')
+      .then(response => { if (active) setStatus(response.data.inspection_available ? 'READY' : 'UNAVAILABLE'); })
+      .catch(() => { if (active) setStatus('UNAVAILABLE'); });
+    check();
+    const timer = window.setInterval(check, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
   return (
     <aside className="w-60 min-h-screen bg-vqc-surface border-r border-vqc-border flex flex-col">
       {/* Logo */}
@@ -60,10 +72,10 @@ export const Sidebar: React.FC = () => {
       {/* System status */}
       <div className="px-4 py-4 border-t border-vqc-border">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-vqc-pass rounded-full animate-pulse" />
+          <div className={`w-2 h-2 rounded-full ${status === 'READY' ? 'bg-vqc-pass' : 'bg-vqc-review'}`} />
           <span className="text-vqc-muted text-xs">Inspection System</span>
         </div>
-        <p className="text-vqc-pass text-xs font-semibold mt-0.5 ml-4">READY</p>
+        <p className={`text-xs font-semibold mt-0.5 ml-4 ${status === 'READY' ? 'text-vqc-pass' : 'text-vqc-review'}`}>{status}</p>
       </div>
     </aside>
   );

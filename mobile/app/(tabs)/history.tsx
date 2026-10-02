@@ -125,7 +125,7 @@ export default function HistoryScreen() {
                 { color: item.anomaly_score > item.threshold ? COLORS.fail : COLORS.pass },
               ]}
             >
-              {(item.anomaly_score * 100).toFixed(1)}%
+              {item.anomaly_score.toFixed(3)}
             </Text>
           </View>
 

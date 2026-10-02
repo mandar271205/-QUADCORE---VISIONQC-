@@ -6,6 +6,7 @@ from typing import Optional
 from app.services.ml.base import BaseMLEngine
 from app.services.ml.mock import MockMLEngine
 from app.services.ml.future_model import FutureMLEngine
+from app.services.ml.profile_engine import ProfileMLEngine
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -35,6 +36,7 @@ class MLRegistry:
 
     # TODO ML TEAM: Register your trained engine here
     _engines: list[BaseMLEngine] = [
+        ProfileMLEngine(),
         FutureMLEngine(),
     ]
 

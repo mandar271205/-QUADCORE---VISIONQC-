@@ -196,10 +196,10 @@ export const DashboardPage: React.FC = () => {
                       <DecisionBadge decision={insp.decision} size="sm" />
                     </td>
                     <td className="py-3 px-3 text-vqc-text font-mono">
-                      {(insp.anomaly_score * 100).toFixed(1)}%
+                      {insp.anomaly_score.toFixed(3)}
                     </td>
                     <td className="py-3 px-3 text-vqc-text font-mono">
-                      {(insp.confidence * 100).toFixed(1)}%
+                      {insp.confidence === 0 ? 'Unavailable' : `${(insp.confidence * 100).toFixed(1)}%`}
                     </td>
                     <td className="py-3 px-3 text-vqc-muted font-mono">
                       {insp.processing_time_ms}ms

@@ -27,7 +27,7 @@ export const AnomalyHeatmapViewer: React.FC<Props> = ({
 
   return (
     <div className={`card ${className}`}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h3 className="text-sm font-semibold text-vqc-text">Anomaly Heatmap</h3>
         {hasImages && (
           <div className="flex items-center gap-1 bg-vqc-panel rounded-lg p-1">
@@ -90,6 +90,7 @@ export const AnomalyHeatmapViewer: React.FC<Props> = ({
         <div className="mt-4 flex items-center gap-3">
           <span className="text-vqc-muted text-xs w-20">Heatmap opacity</span>
           <input
+            aria-label="Heatmap opacity"
             type="range"
             min={0}
             max={1}

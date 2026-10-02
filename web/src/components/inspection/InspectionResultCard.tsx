@@ -33,7 +33,7 @@ export const InspectionResultCard: React.FC<Props> = ({ result, onInspectNext })
             <span className="label m-0">Anomaly Score</span>
           </div>
           <div className="stat-value text-xl">
-            {(result.anomaly_score * 100).toFixed(1)}%
+            {result.anomaly_score.toFixed(3)}
           </div>
           <div className="mt-2 bg-vqc-border rounded-full h-1.5">
             <div
@@ -53,7 +53,7 @@ export const InspectionResultCard: React.FC<Props> = ({ result, onInspectNext })
             <span className="label m-0">Confidence</span>
           </div>
           <div className="stat-value text-xl">
-            {(result.confidence * 100).toFixed(1)}%
+            {result.confidence === 0 ? 'Unavailable' : `${(result.confidence * 100).toFixed(1)}%`}
           </div>
           <div className="mt-2 bg-vqc-border rounded-full h-1.5">
             <div
@@ -66,7 +66,7 @@ export const InspectionResultCard: React.FC<Props> = ({ result, onInspectNext })
         <div className="card-sm">
           <span className="label">Threshold</span>
           <div className="stat-value text-xl text-vqc-muted">
-            {(result.threshold * 100).toFixed(0)}%
+            {result.threshold.toFixed(3)}
           </div>
         </div>
 
@@ -80,6 +80,8 @@ export const InspectionResultCard: React.FC<Props> = ({ result, onInspectNext })
           </div>
         </div>
       </div>
+
+      <p className="text-vqc-muted text-xs">Anomaly scores use a 0–1 scale; they are not defect probabilities. REVIEW requests a manual check near the threshold.</p>
 
       {/* Defects */}
       {result.defects.length > 0 && (
