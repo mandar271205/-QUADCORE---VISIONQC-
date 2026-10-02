@@ -169,8 +169,8 @@ class InspectionRouter:
         """Try VLMs in order: Gemini → Groq → NVIDIA."""
         engines = VLMRegistry.get_ordered_engines()
         if not engines:
-            logger.info("[Router] No external VLM API keys configured - running local inspection engine")
-            return await self._run_demo(image_bytes, product_context)
+            logger.error("[Router] No external VLM API keys configured")
+            raise InspectionFailedError("Inspection could not be completed. Please try again.")
 
         last_error = None
         for engine in engines:
@@ -191,8 +191,8 @@ class InspectionRouter:
                 logger.warning(f"[Router] VLM engine error: {type(e).__name__}: {e}")
                 last_error = e
 
-        logger.warning("[Router] All external VLM engines failed - falling back to local inspection engine")
-        return await self._run_demo(image_bytes, product_context)
+        logger.error("[Router] All external VLM engines failed")
+        raise AllProvidersFailedError()
 
     async def _model_primary(
         self,
