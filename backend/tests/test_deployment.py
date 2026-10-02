@@ -152,3 +152,35 @@ async def test_roi_box_is_drawn_in_existing_heatmap_response(monkeypatch):
         url=response.json()['heatmap_url']
         heatmap=np.asarray(Image.open(io.BytesIO(base64.b64decode(url.split(',',1)[1]))))
         assert heatmap[20,30].tolist()==[0,255,0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('configured,override,client_type,mobile_ml,expected_status,lossless', [
+    ('vlm_primary','model_only','web',True,422,True),
+    ('model_only','vlm_only','web',True,503,False),
+    ('model_only',None,'mobile',False,503,False),
+    ('model_only','invalid','web',True,422,True),
+])
+async def test_upload_mode_consistent_with_engine_route(monkeypatch, configured, override,
+                                                       client_type, mobile_ml, expected_status, lossless):
+    from app.api.v1 import inspections
+    from app.services.vlm.registry import VLMRegistry
+    monkeypatch.setattr(settings,'DEMO_MODE',False)
+    monkeypatch.setattr(settings,'ML_ENABLED',False)
+    monkeypatch.setattr(settings,'INSPECTION_MODE',configured)
+    monkeypatch.setattr(settings,'MOBILE_USE_ML',mobile_ml)
+    monkeypatch.setattr(VLMRegistry,'get_ordered_engines',lambda:[])
+    calls=[]
+    original=inspections.validate_and_preprocess
+    def preprocess(*args,**kwargs):
+        calls.append(kwargs['lossless_inference'])
+        return original(*args,**kwargs)
+    monkeypatch.setattr(inspections,'validate_and_preprocess',preprocess)
+    buffer=io.BytesIO();Image.new('RGB',(32,32)).save(buffer,format='PNG')
+    data={'client_type':client_type}
+    if override is not None:data['inspection_mode']=override
+    async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+        response=await client.post('/api/v1/inspections',data=data,
+            files={'image':('frame.png',buffer.getvalue(),'image/png')})
+    assert response.status_code==expected_status,response.text
+    assert calls==[lossless]

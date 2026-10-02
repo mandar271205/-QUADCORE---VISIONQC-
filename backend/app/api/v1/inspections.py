@@ -21,7 +21,7 @@ from app.schemas.inspection import (
     ProductSummaryInInspection
 )
 from app.schemas.defects import DefectResponse, DefectRegion
-from app.services.inspection_router import inspection_router
+from app.services.inspection_router import inspection_router, resolve_inspection_mode
 from app.services.vlm.base import ProductContext
 from app.services.heatmap.generator import (
     generate_heatmap_from_anomaly_map,
@@ -65,10 +65,9 @@ async def create_inspection(
         raise HTTPException(status_code=422, detail="Could not read uploaded image.")
 
     # Preprocess
+    effective_mode = resolve_inspection_mode(inspection_mode, client_type)
     try:
-        ml_only = (inspection_mode or settings.INSPECTION_MODE) == 'model_only'
-        if client_type == 'mobile' and not settings.MOBILE_USE_ML:
-            ml_only = False
+        ml_only = effective_mode == 'model_only'
         original_bytes, inference_bytes = validate_and_preprocess(image_bytes, image.content_type,
                                                                   lossless_inference=ml_only)
     except (InvalidImageError, ImageTooLargeError) as e:
@@ -96,7 +95,7 @@ async def create_inspection(
         if product is None:
             raise HTTPException(status_code=422, detail='Select an existing product for inspection.')
 
-    if not settings.DEMO_MODE and settings.INSPECTION_MODE == 'model_only':
+    if not settings.DEMO_MODE and effective_mode == 'model_only':
         from app.services.ml.registry import MLRegistry
         if product is None or MLRegistry.get(str(product.id)) is None:
             raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')

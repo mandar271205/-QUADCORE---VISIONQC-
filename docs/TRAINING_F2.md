@@ -105,7 +105,7 @@ and trained checkpoints are ignored by Git.
 
 ## Verification
 
-The current backend suite passes 39 tests, including known F2/confusion metrics,
+The current backend suite passes 45 tests, including known F2/confusion metrics,
 threshold selection, mask F2 checkpoint fitness, frozen splits, checkpoint
 round trips, ROI geometry and backend integration. `pip check`, compileall and
 `git diff --check` pass. Test fixture metrics are never reported as real training

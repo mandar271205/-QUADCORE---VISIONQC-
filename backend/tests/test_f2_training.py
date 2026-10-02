@@ -120,3 +120,17 @@ def test_d2s_conversion_accepts_fortran_coco_masks(tmp_path, monkeypatch):
     assert audit['counts']=={'train':1,'val':1,'test':1}
     assert audit['polygon_iou']['minimum']==1
     assert len(list((prepared/'labels').rglob('*.txt')))==3
+
+
+@pytest.mark.parametrize('state',['running','complete'])
+def test_publish_report_rejects_unfinished_artifacts(tmp_path,monkeypatch,state):
+    import json
+    import publish_results
+    (tmp_path/'outputs/30shot_f2').mkdir(parents=True)
+    (tmp_path/'models').mkdir()
+    (tmp_path/'outputs/experiment_status.json').write_text(json.dumps({'state':state}))
+    (tmp_path/'outputs/30shot_f2/results.json').write_text('[]')
+    (tmp_path/'models/catalog.json').write_text('{}')
+    monkeypatch.setattr(publish_results,'ROOT',tmp_path)
+    with pytest.raises(RuntimeError):publish_results.build(require_complete=True)
+    assert not (tmp_path/'docs/results/metrics.json').exists()

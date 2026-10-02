@@ -28,6 +28,15 @@ from app.services.ml.registry import MLRegistry
 logger = get_logger(__name__)
 
 
+def resolve_inspection_mode(mode_override: Optional[str], client_type: str) -> str:
+    """Use the same route for preprocessing, profile checks and inference."""
+    if client_type == 'mobile' and not settings.MOBILE_USE_ML:
+        return 'vlm_only'
+    if mode_override in ('vlm_primary','vlm_only','model_primary','model_only','parallel_first_valid'):
+        return mode_override
+    return settings.INSPECTION_MODE
+
+
 def _apply_threshold(
     score: float,
     confidence: float,
@@ -132,18 +141,10 @@ class InspectionRouter:
         """
         Execute inspection using configured routing mode.
         
-        Mobile always forces vlm_only.
+        Mobile defaults to vlm_only unless MOBILE_USE_ML is enabled.
         Failures from individual providers are caught and fallback is attempted.
         """
-        # Mobile always uses VLM only
-        if client_type == "mobile" and not settings.MOBILE_USE_ML:
-            effective_mode = "vlm_only"
-        elif mode_override and mode_override in (
-            "vlm_primary", "vlm_only", "model_primary", "model_only", "parallel_first_valid"
-        ):
-            effective_mode = mode_override
-        else:
-            effective_mode = settings.INSPECTION_MODE
+        effective_mode = resolve_inspection_mode(mode_override, client_type)
 
         # Demo mode bypass
         if settings.DEMO_MODE:
