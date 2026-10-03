@@ -7,6 +7,7 @@ const ProductsPage = lazy(() => import('./pages/ProductsPage').then(module => ({
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then(module => ({ default: module.ProductDetailPage })));
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then(module => ({ default: module.HistoryPage })));
 const InspectionDetailPage = lazy(() => import('./pages/InspectionDetailPage').then(module => ({ default: module.InspectionDetailPage })));
+const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage').then(module => ({ default: module.ReviewQueuePage })));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(module => ({ default: module.AnalyticsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const ComparisonPage = lazy(() => import('./pages/ComparisonPage').then(module => ({ default: module.ComparisonPage })));
@@ -22,6 +23,7 @@ const App: React.FC = () => {
           <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/history/:id" element={<InspectionDetailPage />} />
+          <Route path="/reviews" element={<ReviewQueuePage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/comparison" element={<ComparisonPage />} />

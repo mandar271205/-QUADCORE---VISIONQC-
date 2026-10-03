@@ -24,6 +24,56 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+@router.get('/resolve')
+async def resolve_product_by_code(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Resolve a product by barcode, QR payload, or SKU code.
+
+    Used for automatic product profile selection.
+    The scanned value is treated ONLY as an identifier to look up an existing
+    product — it is never executed or used to create a new product.
+
+    Returns:
+        200 with product data if found
+        404 with 'product_not_found' status if no match
+    """
+    # Try barcode field first, then product code
+    result = await db.execute(
+        select(Product).where(Product.barcode == code)
+    )
+    product = result.scalar_one_or_none()
+
+    if product is None:
+        # Fallback: try matching the product code (SKU)
+        result = await db.execute(
+            select(Product).where(Product.code == code)
+        )
+        product = result.scalar_one_or_none()
+
+    if product is None:
+        return {
+            "status": "product_not_found",
+            "scanned_value": code,
+            "message": "No product profile found for this code. Please select a product manually.",
+        }
+
+    return {
+        "status": "found",
+        "product": {
+            "id": str(product.id),
+            "name": product.name,
+            "code": product.code,
+            "barcode": product.barcode,
+            "threshold": product.threshold,
+            "model_status": product.model_status.value,
+            "reference_image_count": product.reference_image_count,
+        },
+    }
+
+
 @router.get('/trained-profiles')
 async def trained_profiles():
     from app.services.ml.catalog import public_profiles

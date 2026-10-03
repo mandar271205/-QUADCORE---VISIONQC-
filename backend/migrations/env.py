@@ -44,11 +44,14 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_async_migrations() -> None:
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    connect_args = {}
+    if "asyncpg" in settings.DATABASE_URL:
+        connect_args["prepared_statement_cache_size"] = 0
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args={"prepared_statement_cache_size": 0},
+        connect_args=connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

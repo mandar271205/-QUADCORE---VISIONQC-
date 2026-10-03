@@ -1,6 +1,9 @@
 import { readShared } from './reads';
 import apiClient from './client';
-import type { TodayAnalytics, AnalyticsResponse } from '../types';
+import type { 
+  TodayAnalytics, AnalyticsResponse, HotspotResponse, 
+  DriftAllResponse, ProfileVersionListResponse 
+} from '../types';
 
 export async function getTodayAnalytics(): Promise<TodayAnalytics> {
   return readShared('/analytics/today', async () => {
@@ -22,5 +25,32 @@ export async function getRangeAnalytics(params?: {
 
 export async function getSystemStatus() {
   const { data } = await apiClient.get('/system/status');
+  return data;
+}
+
+export async function getProductHotspots(productId: string, days = 30): Promise<HotspotResponse> {
+  const { data } = await apiClient.get<HotspotResponse>('/analytics/hotspots', {
+    params: { product_id: productId, days },
+  });
+  return data;
+}
+
+export async function getAllDriftStatus(): Promise<DriftAllResponse> {
+  const { data } = await apiClient.get<DriftAllResponse>('/analytics/drift');
+  return data;
+}
+
+export async function getProductDrift(productId: string) {
+  const { data } = await apiClient.get(`/analytics/drift/${productId}`);
+  return data;
+}
+
+export async function computeProductDrift(productId: string) {
+  const { data } = await apiClient.post(`/analytics/drift/${productId}/compute`);
+  return data;
+}
+
+export async function getProfileVersions(productId: string): Promise<ProfileVersionListResponse> {
+  const { data } = await apiClient.get<ProfileVersionListResponse>(`/analytics/profile-versions/${productId}`);
   return data;
 }

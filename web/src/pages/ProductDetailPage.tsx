@@ -11,6 +11,7 @@ import {
   getReferenceImages, deleteReferenceImage,
   startLearnNormal, getLearnNormalStatus,
 } from '../api/products';
+import { getProductHotspots, getProductDrift } from '../api/analytics';
 import type { LearnNormalStatus } from '../api/products';
 import { getInspections } from '../api/inspections';
 import type { Product, ReferenceImage, InspectionListItem } from '../types';
@@ -139,10 +140,14 @@ export const ProductDetailPage: React.FC = () => {
   const [training, setTraining] = useState(false);
   const [trainError, setTrainError] = useState('');
   const [trainBanner, setTrainBanner] = useState('');
-  // Webcam capture mode for reference images
-  const [webcamMode, setWebcamMode] = useState(false);
   const [webcamError, setWebcamError] = useState(false);
   const [capturingRef, setCapturingRef] = useState(false);
+  
+  const [webcamMode, setWebcamMode] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
+  const [hotspotData, setHotspotData] = useState<any>(null);
+  const [driftData, setDriftData] = useState<any>(null);
 
   /* ── polling ── */
   const stopPoll = useCallback(() => {
@@ -173,15 +178,19 @@ export const ProductDetailPage: React.FC = () => {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [p, imgs, insps] = await Promise.all([
+      const [p, imgs, insps, h, d] = await Promise.all([
         getProduct(id),
         getReferenceImages(id),
         getInspections({ product_id: id, page_size: 10 }),
+        getProductHotspots(id).catch(() => null),
+        getProductDrift(id).catch(() => null),
       ]);
       setProduct(p);
       setThreshold(p.threshold);
       setImages(imgs);
       setInspections(insps.items);
+      if (h) setHotspotData(h);
+      if (d) setDriftData(d);
       if (p.model_status === 'training') { setTraining(true); startStatusPoll(); }
     } finally {
       setLoading(false);
@@ -336,13 +345,102 @@ export const ProductDetailPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-vqc-text truncate">{product.name}</h1>
           <p className="text-vqc-muted text-sm font-mono">{product.code}</p>
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-4">
+          <div className="flex bg-secondary p-1 rounded-md">
+            <button 
+              onClick={() => setActiveTab('overview')} 
+              className={`px-3 py-1 text-sm font-medium rounded-sm ${activeTab === 'overview' ? 'bg-background text-foreground shadow' : 'text-muted-foreground'}`}
+            >
+              Overview
+            </button>
+            <button 
+              onClick={() => setActiveTab('analytics')} 
+              className={`px-3 py-1 text-sm font-medium rounded-sm ${activeTab === 'analytics' ? 'bg-background text-foreground shadow' : 'text-muted-foreground'}`}
+            >
+              Analytics & Drift
+            </button>
+          </div>
           <span className={`text-sm font-semibold ${getStatusColor(product.model_status, refCount)}`}>
             {getStatusLabel(product.model_status, refCount)}
           </span>
         </div>
       </div>
-
+      
+      {activeTab === 'analytics' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card">
+            <h3 className="section-title">Defect Hotspots</h3>
+            {hotspotData?.status === 'ok' ? (
+              <div>
+                <p className="text-sm text-vqc-muted mb-4">
+                  Aggregated defect locations across {hotspotData.contributing_inspections} failing inspections.
+                </p>
+                <div className="grid grid-cols-10 gap-1 aspect-square bg-secondary/20 p-2 rounded-lg border border-vqc-border">
+                  {hotspotData.grid?.map((row: number[], i: number) => 
+                    row.map((val: number, j: number) => (
+                      <div 
+                        key={`${i}-${j}`} 
+                        className="w-full h-full rounded-sm"
+                        style={{ 
+                          backgroundColor: val > 0 ? `rgba(239, 68, 68, ${Math.max(0.2, val)})` : 'transparent',
+                          border: val > 0 ? '1px solid rgba(239, 68, 68, 0.5)' : '1px dashed rgba(148, 163, 184, 0.2)'
+                        }}
+                        title={val > 0 ? `Intensity: ${(val * 100).toFixed(0)}%` : 'No defects'}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-8 text-vqc-muted bg-secondary/10 rounded-lg border border-vqc-border border-dashed">
+                {hotspotData?.message || 'Not enough data to generate hotspots.'}
+              </div>
+            )}
+          </div>
+          
+          <div className="card">
+            <h3 className="section-title">Drift Monitoring</h3>
+            {driftData ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-vqc-border">
+                  <span className="font-medium text-vqc-text">Status</span>
+                  <span className={`font-bold ${driftData.drift_status === 'STABLE' ? 'text-green-500' : 'text-amber-500'}`}>
+                    {driftData.drift_status}
+                  </span>
+                </div>
+                
+                {driftData.worsening_signals?.length > 0 && (
+                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <h4 className="text-sm font-semibold text-amber-500 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" /> Warning Signals
+                    </h4>
+                    <ul className="list-disc pl-5 text-sm text-vqc-text space-y-1">
+                      {driftData.worsening_signals.map((sig: string, i: number) => (
+                        <li key={i}>{sig}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg bg-secondary/10 border border-vqc-border">
+                    <div className="text-xs text-vqc-muted uppercase tracking-wider mb-1">Rejection Rate</div>
+                    <div className="text-2xl font-bold">{driftData.rejection_rate}%</div>
+                  </div>
+                  <div className="p-4 rounded-lg bg-secondary/10 border border-vqc-border">
+                    <div className="text-xs text-vqc-muted uppercase tracking-wider mb-1">Inspections Evaluated</div>
+                    <div className="text-2xl font-bold">{driftData.inspection_count}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-8 text-vqc-muted bg-secondary/10 rounded-lg border border-vqc-border border-dashed">
+                Drift data unavailable.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── LEFT: Learn Normal + Threshold ── */}
         <div className="space-y-4">
@@ -727,6 +825,7 @@ export const ProductDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

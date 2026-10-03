@@ -23,6 +23,11 @@ const config = {
     classes: 'bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/25',
     dotColor: 'bg-amber-400',
   },
+  RETAKE: {
+    label: 'RETAKE',
+    classes: 'bg-slate-500/15 text-slate-400 border-slate-500/30 hover:bg-slate-500/25',
+    dotColor: 'bg-slate-400',
+  },
 };
 
 const sizeClasses = {

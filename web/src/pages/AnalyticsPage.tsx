@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
-const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b' };
+const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b', RETAKE: '#64748b' };
 const CHART_STYLE = {
   contentStyle: { background: '#1E293B', border: '1px solid #334155', borderRadius: 8, color: '#F8FAFC' },
   labelStyle: { color: '#F8FAFC' },
@@ -49,7 +49,8 @@ export const AnalyticsPage: React.FC = () => {
     { name: 'PASS', value: data.total_passed, fill: COLORS.PASS },
     { name: 'FAIL', value: data.total_failed, fill: COLORS.FAIL },
     { name: 'REVIEW', value: data.total_review, fill: COLORS.REVIEW },
-  ] : [];
+    { name: 'RETAKE', value: data.total_retake, fill: COLORS.RETAKE },
+  ].filter(d => d.value > 0) : [];
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
@@ -103,17 +104,19 @@ export const AnalyticsPage: React.FC = () => {
       ) : !data ? null : (
         <>
           {/* KPI tiles */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
             {[
               { label: 'Total Inspections', value: data.total_inspections, color: 'text-primary' },
               { label: 'Rejection Rate', value: `${data.overall_rejection_rate}%`, color: 'text-destructive' },
+              { label: 'Review Rate', value: `${data.review_rate}%`, color: 'text-amber-500' },
+              { label: 'Override Rate', value: `${data.override_rate}%`, color: 'text-purple-500' },
               { label: 'Avg. Anomaly Score', value: `${(data.average_anomaly_score * 100).toFixed(1)}%`, color: 'text-foreground' },
-              { label: 'Avg. Processing Time', value: `${Math.round(data.average_processing_time_ms)}ms`, color: 'text-muted-foreground' },
+              { label: 'Image Retakes', value: data.total_retake, color: 'text-muted-foreground' },
             ].map(({ label, value, color }) => (
               <Card key={label} className="shadow-sm border-border bg-card">
                 <CardContent className="p-6">
                   <div className={`text-2xl font-bold ${color}`}>{value}</div>
-                  <div className="text-muted-foreground text-xs mt-1 font-semibold uppercase tracking-wider">{label}</div>
+                  <div className="text-muted-foreground text-xs mt-1 font-semibold uppercase tracking-wider leading-tight">{label}</div>
                 </CardContent>
               </Card>
             ))}

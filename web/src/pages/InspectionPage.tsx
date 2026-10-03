@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Upload, ScanLine, RefreshCw, AlertCircle, Activity } from 'lucide-react';
-import { getProducts } from '../api/products';
+import { getProducts, resolveProductByCode } from '../api/products';
 import { runInspection } from '../api/inspections';
 import type { Product, InspectionResponse } from '../types';
 import { AnomalyHeatmapViewer } from '../components/inspection/AnomalyHeatmapViewer';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 type Stage = 'idle' | 'camera' | 'preview' | 'inspecting' | 'result' | 'error';
 
@@ -26,6 +27,10 @@ export const InspectionPage: React.FC = () => {
   const [result, setResult] = useState<InspectionResponse | null>(null);
   const [error, setError] = useState<string>('');
   const [cameraError, setCameraError] = useState(false);
+  
+  const [barcode, setBarcode] = useState('');
+  const [resolvingBarcode, setResolvingBarcode] = useState(false);
+  const [barcodeMessage, setBarcodeMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
   useEffect(() => {
     getProducts().then(setProducts).catch(console.error);
@@ -73,6 +78,28 @@ export const InspectionPage: React.FC = () => {
     e.target.value = '';
   };
 
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!barcode.trim()) return;
+    
+    setResolvingBarcode(true);
+    setBarcodeMessage(null);
+    try {
+      const res = await resolveProductByCode(barcode.trim());
+      if (res.product) {
+        setSelectedProduct(res.product.id);
+        setBarcodeMessage({ type: 'success', text: `Resolved: ${res.product.name}` });
+      } else {
+        setSelectedProduct('none');
+        setBarcodeMessage({ type: 'error', text: res.message || 'Product not found' });
+      }
+    } catch (e: any) {
+      setBarcodeMessage({ type: 'error', text: 'Failed to resolve barcode' });
+    } finally {
+      setResolvingBarcode(false);
+    }
+  };
+
   const inspect = async () => {
     if (!imageFile) return;
     setStage('inspecting');
@@ -94,6 +121,8 @@ export const InspectionPage: React.FC = () => {
     setImageFile(null);
     setResult(null);
     setError('');
+    setBarcode('');
+    setBarcodeMessage(null);
   };
 
   return (
@@ -213,9 +242,29 @@ export const InspectionPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Target Product */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Target Product
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex justify-between items-center">
+                    <span>Target Product</span>
+                    {barcodeMessage && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${barcodeMessage.type === 'success' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                        {barcodeMessage.text}
+                      </span>
+                    )}
                   </label>
+                  
+                  <div className="flex gap-2 mb-2">
+                    <form onSubmit={handleBarcodeSubmit} className="flex-1 flex gap-2">
+                      <Input 
+                        placeholder="Scan Barcode / QR..." 
+                        value={barcode}
+                        onChange={e => setBarcode(e.target.value)}
+                        className="bg-secondary/30 h-11 text-sm font-mono"
+                        disabled={resolvingBarcode}
+                      />
+                      <Button type="submit" variant="secondary" className="h-11 px-3" disabled={resolvingBarcode || !barcode}>
+                        {resolvingBarcode ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
+                      </Button>
+                    </form>
+                  </div>
 
                   <Select
                     value={selectedProduct || 'none'}

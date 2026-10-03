@@ -258,6 +258,19 @@ class LearnNormalService:
                     product.model_status = ModelStatus.ready
                     await db.commit()
 
+                    # Create profile version snapshot (non-blocking)
+                    try:
+                        from app.services.profile_versioning import create_profile_version
+                        await create_profile_version(
+                            product,
+                            db,
+                            change_reason=f"Learn Normal completed (v{training_result.get('profile_path', 'unknown')})",
+                        )
+                        await db.commit()
+                        logger.info(f"[LearnNormal] Profile version snapshot created for product {product_id}")
+                    except Exception as _pv_exc:
+                        logger.warning(f"[LearnNormal] Profile version snapshot failed (non-fatal): {_pv_exc}")
+
                     logger.info(
                         f"[LearnNormal] Training complete for product {product_id}. "
                         f"Fitted {training_result['train_samples']} train samples, "

@@ -10,8 +10,11 @@ import {
   BarChart2,
   Settings,
   Eye,
+  Inbox
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { reviewsApi } from '../../api/reviews';
 
 function prepareInspection() {
   void import('../../pages/InspectionPage').catch(() => {});
@@ -22,6 +25,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/inspect', icon: ScanLine, label: 'Live Inspection' },
   { to: '/products', icon: Package, label: 'Products' },
+  { to: '/reviews', icon: Inbox, label: 'Review Queue', badge: true },
   { to: '/history', icon: ClipboardList, label: 'History' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/comparison', icon: BarChart2, label: 'Model Comparison' },
@@ -30,6 +34,13 @@ const navItems = [
 
 export const Sidebar: React.FC = () => {
   const [status, setStatus] = useState<'CHECKING' | 'READY' | 'UNAVAILABLE'>('CHECKING');
+  
+  const { data: reviewCount } = useQuery({
+    queryKey: ['reviewCount'],
+    queryFn: () => reviewsApi.getReviewCount(),
+    refetchInterval: 30000,
+  });
+
   useEffect(() => {
     let active = true;
     const check = () => apiClient.get<{inspection_available:boolean}>('/system/status')
@@ -55,7 +66,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -64,7 +75,7 @@ export const Sidebar: React.FC = () => {
             onFocus={to === '/inspect' ? prepareInspection : undefined}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group",
+                "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
@@ -73,8 +84,15 @@ export const Sidebar: React.FC = () => {
           >
             {({ isActive }) => (
               <>
-                <Icon className={cn("w-4 h-4 flex-shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                {label}
+                <div className="flex items-center gap-3">
+                  <Icon className={cn("w-4 h-4 flex-shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  {label}
+                </div>
+                {badge && reviewCount && reviewCount.pending > 0 && (
+                  <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {reviewCount.pending}
+                  </span>
+                )}
               </>
             )}
           </NavLink>

@@ -21,6 +21,11 @@ export interface LearnNormalStatus {
   estimated_seconds?: number;
 }
 
+export async function resolveProductByCode(code: string): Promise<{ status: string; product?: Product; message?: string }> {
+  const { data } = await apiClient.get(`/products/resolve`, { params: { code } });
+  return data;
+}
+
 export async function getTrainedProfiles(): Promise<TrainedProfile[]> {
   return readShared('/products/trained-profiles', async () => {
     const { data } = await apiClient.get<TrainedProfile[]>('/products/trained-profiles');

@@ -16,7 +16,8 @@ from sqlalchemy.orm import selectinload, joinedload
 
 from app.db.session import get_db
 from app.db.models import (
-    Inspection, Defect, InspectionRuntime, Product, Decision, ClientType, Severity
+    Inspection, Defect, InspectionRuntime, Product, Decision, ClientType, Severity,
+    OperationalSeverity, QualityCheckStatus, InspectionReview, ReviewStatus
 )
 from app.schemas.inspection import (
     InspectionResponse, InspectionListResponse, InspectionListItem,
@@ -32,6 +33,10 @@ from app.services.heatmap.generator import (
 )
 from app.services.heatmap.masks import validate_and_preprocess
 from app.services.storage.supabase import storage_service
+from app.services.image_quality_gate import image_quality_gate
+from app.services.severity import compute_severity
+from app.services.review_queue import maybe_enqueue_review
+from app.services.profile_versioning import get_active_profile_version
 from app.core.exceptions import (
     InvalidImageError, ImageTooLargeError, AllProvidersFailedError, visionqc_exception_to_http
 )
@@ -118,10 +123,17 @@ async def create_inspection(
     product_id: Optional[str] = Form(None),
     client_type: str = Form("web"),
     inspection_mode: Optional[str] = Form(None),
+    batch_id: Optional[str] = Form(None),
+    shift: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Run a quality inspection on the uploaded image.
+    
+    Image Quality Gate runs first. If the image is clearly unusable (blurry,
+    dark, overexposed, etc.), a RETAKE outcome is returned immediately WITHOUT
+    running AI inspection. A RETAKE is NOT a product defect.
+    
     Mobile uses the configured mode when MOBILE_USE_ML is enabled; otherwise VLM-only.
     """
     start_time = time.perf_counter()
@@ -190,15 +202,91 @@ async def create_inspection(
     except (InvalidImageError, ImageTooLargeError) as e:
         raise visionqc_exception_to_http(e)
 
-    if not settings.DEMO_MODE and effective_mode == 'model_only':
-        if product is None or selected_ml_engine is None:
-            raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
-
-    # Validate client_type
+    # Validate client_type (needed before quality gate RETAKE path)
     try:
         ct = ClientType(client_type)
     except ValueError:
         ct = ClientType.web
+
+    # ── Image Quality Gate ───────────────────────────────────────────────────
+    # Runs BEFORE expensive AI inspection. Poor images get RETAKE, not FAIL.
+    quality_result = None
+    qc_status = QualityCheckStatus.not_run
+    if not settings.DEMO_MODE:
+        quality_result = image_quality_gate.check(original_bytes)
+        qc_status = QualityCheckStatus(quality_result.status) if quality_result.status in (
+            'good', 'uncertain', 'poor'
+        ) else QualityCheckStatus.not_run
+
+        if quality_result.status == 'poor':
+            # Do NOT run inspection. Return RETAKE outcome immediately.
+            logger.info(
+                f"[QualityGate] Poor image quality (score={quality_result.quality_score:.3f}, "
+                f"issues={quality_result.issues}) — returning RETAKE, no inspection run"
+            )
+            processing_time_ms = int((time.time() - start_time) * 1000)
+
+            # Persist as RETAKE inspection (NOT a product defect)
+            upload_url = None
+            try:
+                upload_url = await storage_service.upload_original(original_bytes, str(inspection_id))
+            except Exception:
+                pass
+
+            db_inspection = Inspection(
+                id=inspection_id,
+                product_id=product.id if product else None,
+                client_type=ct,
+                decision=Decision.RETAKE,
+                anomaly_score=0.0,
+                confidence=0.0,
+                threshold=product_context.threshold,
+                original_image_url=upload_url,
+                heatmap_url=None,
+                processing_time_ms=processing_time_ms,
+                operational_severity=OperationalSeverity.UNKNOWN,
+                quality_check_status=qc_status,
+                quality_score=quality_result.quality_score,
+                quality_issues=json.dumps(quality_result.issues) if quality_result.issues else None,
+                batch_id=batch_id,
+                shift=shift,
+            )
+            db.add(db_inspection)
+            await db.commit()
+
+            return InspectionResponse(
+                inspection_id=inspection_id,
+                product=ProductSummaryInInspection(id=product.id, name=product.name) if product else None,
+                decision=Decision.RETAKE,
+                anomaly_score=0.0,
+                confidence=0.0,
+                threshold=product_context.threshold,
+                heatmap_url=None,
+                original_image_url=upload_url,
+                defects=[],
+                summary=quality_result.message,
+                processing_time_ms=processing_time_ms,
+                created_at=db_inspection.created_at or datetime.utcnow(),
+                operational_severity=OperationalSeverity.UNKNOWN,
+                quality_check_status=qc_status,
+                quality_score=quality_result.quality_score,
+                quality_issues=quality_result.issues,
+                quality_message=quality_result.message,
+                batch_id=batch_id,
+                shift=shift,
+            )
+
+    if not settings.DEMO_MODE and effective_mode == 'model_only':
+        if product is None or selected_ml_engine is None:
+            raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
+
+    # Get active profile version for auditability (non-blocking)
+    active_profile_version = None
+    if product is not None:
+        try:
+            active_profile_version = await get_active_profile_version(product.id, db)
+        except Exception:
+            pass
 
     # Run inspection
     runtime_started = datetime.utcnow()
@@ -229,6 +317,19 @@ async def create_inspection(
 
     # Persist inspection
     threshold_used = result.threshold if result.threshold is not None else product_context.threshold
+
+    # Compute operational severity from actual engine evidence
+    operational_severity = compute_severity(
+        decision=result.decision,
+        anomaly_score=result.anomaly_score,
+        threshold=threshold_used,
+        confidence=result.confidence,
+        defect_count=len(result.defects),
+    )
+
+    # Build conformity summary (supervisor-facing, no internal engine names)
+    conformity_summary = result.summary if result.summary else None
+
     db_inspection = Inspection(
         id=inspection_id,
         product_id=product.id if product else None,
@@ -240,6 +341,14 @@ async def create_inspection(
         original_image_url=original_url,
         heatmap_url=heatmap_url,
         processing_time_ms=processing_time_ms,
+        operational_severity=operational_severity,
+        quality_check_status=qc_status if quality_result else QualityCheckStatus.not_run,
+        quality_score=quality_result.quality_score if quality_result else None,
+        quality_issues=json.dumps(quality_result.issues) if (quality_result and quality_result.issues) else None,
+        conformity_summary=conformity_summary,
+        batch_id=batch_id,
+        shift=shift,
+        profile_version_id=active_profile_version.id if active_profile_version else None,
     )
     db.add(db_inspection)
 
@@ -296,6 +405,10 @@ async def create_inspection(
     )
     db.add(db_runtime)
 
+    # ── Human Review Queue ──────────────────────────────────────────────────
+    # REVIEW decisions are enqueued; PASS/FAIL/RETAKE are NOT
+    review_record = await maybe_enqueue_review(inspection_id, result.decision, db)
+
     await db.commit()
     processing_time_ms = int((time.perf_counter() - start_time) * 1000)
     logger.info("Inspection %s completed in %dms", inspection_id, processing_time_ms)
@@ -313,6 +426,15 @@ async def create_inspection(
         summary=result.summary,
         processing_time_ms=processing_time_ms,
         created_at=db_inspection.created_at or datetime.utcnow(),
+        operational_severity=operational_severity,
+        quality_check_status=qc_status if quality_result else QualityCheckStatus.not_run,
+        quality_score=quality_result.quality_score if quality_result else None,
+        quality_issues=quality_result.issues if quality_result else None,
+        quality_message=quality_result.message if quality_result else None,
+        conformity_summary=conformity_summary,
+        batch_id=batch_id,
+        shift=shift,
+        review_status=review_record.review_status if review_record else None,
     )
 
 
@@ -362,7 +484,10 @@ async def list_inspections(
     # Fetch page
     q = (
         select(Inspection)
-        .options(joinedload(Inspection.product))
+        .options(
+            selectinload(Inspection.product),
+            selectinload(Inspection.review),
+        )
         .order_by(Inspection.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -375,6 +500,7 @@ async def list_inspections(
 
     items = []
     for insp in inspections:
+        rev = insp.review
         items.append(InspectionListItem(
             inspection_id=insp.id,
             product=(
@@ -389,6 +515,12 @@ async def list_inspections(
             original_image_url=insp.original_image_url,
             processing_time_ms=insp.processing_time_ms,
             created_at=insp.created_at,
+            operational_severity=getattr(insp, 'operational_severity', OperationalSeverity.UNKNOWN),
+            quality_check_status=getattr(insp, 'quality_check_status', QualityCheckStatus.not_run),
+            batch_id=getattr(insp, 'batch_id', None),
+            shift=getattr(insp, 'shift', None),
+            review_status=rev.review_status if rev else None,
+            human_decision=rev.human_decision if rev else None,
         ))
 
     return InspectionListResponse(
@@ -404,7 +536,11 @@ async def list_inspections(
 async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Inspection)
-        .options(joinedload(Inspection.product), selectinload(Inspection.defects))
+        .options(
+            selectinload(Inspection.product),
+            selectinload(Inspection.defects),
+            selectinload(Inspection.review),
+        )
         .where(Inspection.id == inspection_id)
     )
     insp = result.scalar_one_or_none()
@@ -428,6 +564,16 @@ async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(ge
             region=region,
         ))
 
+    rev = insp.review
+    import json as _json
+    quality_issues_parsed = None
+    raw_qi = getattr(insp, 'quality_issues', None)
+    if raw_qi:
+        try:
+            quality_issues_parsed = _json.loads(raw_qi)
+        except Exception:
+            pass
+
     return InspectionResponse(
         inspection_id=insp.id,
         product=(
@@ -441,9 +587,18 @@ async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(ge
         heatmap_url=insp.heatmap_url,
         original_image_url=insp.original_image_url,
         defects=defect_responses,
-        summary="",
+        summary=getattr(insp, 'conformity_summary', '') or '',
         processing_time_ms=insp.processing_time_ms,
         created_at=insp.created_at,
+        operational_severity=getattr(insp, 'operational_severity', OperationalSeverity.UNKNOWN),
+        quality_check_status=getattr(insp, 'quality_check_status', QualityCheckStatus.not_run),
+        quality_score=getattr(insp, 'quality_score', None),
+        quality_issues=quality_issues_parsed,
+        conformity_summary=getattr(insp, 'conformity_summary', None),
+        batch_id=getattr(insp, 'batch_id', None),
+        shift=getattr(insp, 'shift', None),
+        review_status=rev.review_status if rev else None,
+        human_decision=rev.human_decision if rev else None,
     )
 
 

@@ -17,10 +17,12 @@ class VLMRegistry:
 
     @classmethod
     def get_ordered_engines(cls) -> list[BaseVLMEngine]:
-        """Return available engines: Groq only."""
+        """Return available engines."""
         if cls._engines is None:
             cls._engines = [
+                GeminiVisionEngine(),
                 GroqVisionEngine(),
+                NvidiaVisionEngine(),
             ]
         available = [e for e in cls._engines if e.is_available()]
         if not available:

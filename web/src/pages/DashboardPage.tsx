@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b' };
+const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b', RETAKE: '#64748b' };
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -43,7 +43,8 @@ export const DashboardPage: React.FC = () => {
         { name: 'PASS', value: analytics.passed, fill: COLORS.PASS },
         { name: 'FAIL', value: analytics.failed, fill: COLORS.FAIL },
         { name: 'REVIEW', value: analytics.review, fill: COLORS.REVIEW },
-      ]
+        { name: 'RETAKE', value: analytics.retake, fill: COLORS.RETAKE },
+      ].filter(d => d.value > 0)
     : [];
 
   if (loading) {
@@ -78,35 +79,33 @@ export const DashboardPage: React.FC = () => {
             value: analytics?.total ?? 0, color: 'text-primary',
           },
           {
-            icon: XCircle, label: 'Rejected',
-            value: analytics?.failed ?? 0, color: 'text-destructive',
-          },
-          {
             icon: CheckCircle, label: 'Pass Rate',
             value: analytics
-              ? analytics.total > 0
-                ? `${((analytics.passed / analytics.total) * 100).toFixed(1)}%`
+              ? analytics.total - analytics.retake > 0
+                ? `${((analytics.passed / (analytics.total - analytics.retake)) * 100).toFixed(1)}%`
                 : '—'
               : '—',
             color: 'text-green-500',
           },
           {
-            icon: Clock, label: 'Avg. Time',
-            value: analytics
-              ? `${Math.round(analytics.average_processing_time_ms)}ms`
-              : '—',
-            color: 'text-muted-foreground',
+            icon: XCircle, label: 'Rejected',
+            value: analytics?.failed ?? 0, color: 'text-destructive',
+          },
+          {
+            icon: AlertTriangle, label: 'Pending Reviews',
+            value: analytics?.pending_reviews ?? 0,
+            color: (analytics?.pending_reviews ?? 0) > 0 ? 'text-amber-500' : 'text-muted-foreground',
           },
         ].map(({ icon: Icon, label, value, color }) => (
           <Card key={label} className="shadow-sm border-border bg-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-secondary/80 rounded-lg flex items-center justify-center border border-border">
-                  <Icon className={`w-5 h-5 ${color}`} />
-                </div>
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">{label}</div>
+                <div className={`text-3xl font-bold ${color}`}>{value}</div>
               </div>
-              <div className={`text-3xl font-bold ${color}`}>{value}</div>
-              <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mt-1">{label}</div>
+              <div className="w-12 h-12 bg-secondary/80 rounded-full flex items-center justify-center border border-border">
+                <Icon className={`w-6 h-6 ${color}`} />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -162,6 +161,7 @@ export const DashboardPage: React.FC = () => {
               {[
                 { label: 'Rejection Rate', value: `${analytics?.rejection_rate ?? 0}%`, color: 'text-destructive' },
                 { label: 'Review Required', value: analytics?.review ?? 0, color: 'text-amber-500' },
+                { label: 'Image Retakes (Quality Issue)', value: analytics?.retake ?? 0, color: 'text-muted-foreground' },
                 { label: 'Avg. Anomaly Score', value: `${((analytics?.average_anomaly_score ?? 0) * 100).toFixed(1)}%`, color: 'text-foreground' },
                 { label: 'Avg. Processing Time', value: `${Math.round(analytics?.average_processing_time_ms ?? 0)}ms`, color: 'text-foreground' },
               ].map(({ label, value, color }) => (

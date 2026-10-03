@@ -90,6 +90,7 @@ export const HistoryPage: React.FC = () => {
                   <SelectItem value="PASS">PASS</SelectItem>
                   <SelectItem value="FAIL">FAIL</SelectItem>
                   <SelectItem value="REVIEW">REVIEW</SelectItem>
+                  <SelectItem value="RETAKE">RETAKE</SelectItem>
                 </SelectContent>
               </Select>
             </div>
