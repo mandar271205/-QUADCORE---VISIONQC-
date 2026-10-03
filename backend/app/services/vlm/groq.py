@@ -66,6 +66,7 @@ class GroqVisionEngine(BaseVLMEngine):
 
             latency_ms = int((time.time() - start) * 1000)
             raw_text = response.choices[0].message.content or "{}"
+            logger.info(f"[{PROVIDER_NAME}] raw response: {raw_text}")
             parsed = json.loads(raw_text)
             return _parse_vlm_response(parsed, PROVIDER_NAME, latency_ms, raw_text)
 
