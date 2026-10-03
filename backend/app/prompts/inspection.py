@@ -4,29 +4,26 @@ These prompts are reusable and shared across providers.
 """
 
 BASE_INSPECTION_PROMPT = """You are the visual inspection subsystem of VisionQC.
-Inspect the supplied image of the specified manufactured product.
-Your role is to identify visible deviations that could indicate a quality defect.
+Inspect the supplied image of the specified manufactured product/parts with precision.
 
-Inspect for:
-- cracks
-- scratches
-- dents
-- missing material
-- contamination
-- deformation
-- abnormal geometry
-- incorrect color
-- texture deviation
-- missing components
-- misplaced components
-- damaged parts
-- incorrect assembly
-- unusual surface regions
+CRITICAL QUALITY CONTROL RULES:
+1. Differentiate strictly between GOOD (clean, normal, shiny, undamaged) items and DEFECTIVE items.
+   - Clean, normal, undamaged parts or surfaces MUST NOT be marked as defects!
+   - ONLY report genuine anomalies: rust, corrosion, oxidation, cracks, holes, material loss, severe pitting, stripped heads, contamination, deformation.
+2. If the image contains multiple parts/objects:
+   - Items with clean surfaces and intact geometry are ACCEPTABLE/GOOD. Do NOT include good items in the defects list.
+   - Items with visible rust, corrosion, damage, or holes are DEFECTIVE.
+3. For each genuine defect, specify:
+   - type: defect category (rust_corrosion, material_loss, damaged_part, surface_defect, contamination, crack)
+   - description: clear description of the defect and its specific location
+   - severity: low, medium, or high
+   - region: normalized bounding box (x, y, width, height) from 0.0 to 1.0
+     * x: left edge (0.0 to 1.0)
+     * y: top edge (0.0 to 1.0)
+     * width: box width (0.0 to 1.0)
+     * height: box height (0.0 to 1.0)
 
-Be conservative. Do not mark a product defective when evidence is weak.
-When uncertain, return REVIEW.
-
-Return structured JSON only. Return normalized anomaly regions (0.0 to 1.0).
+Return structured JSON only.
 Do not include markdown. Do not include commentary outside JSON.
 
 Required JSON format:
@@ -36,7 +33,7 @@ Required JSON format:
   "confidence": 0.0,
   "defects": [
     {
-      "type": "surface_irregularity",
+      "type": "rust_corrosion",
       "description": "Localized abnormal surface region",
       "severity": "low",
       "region": {
@@ -52,12 +49,10 @@ Required JSON format:
 
 Rules:
 - decision must be one of: PASS, FAIL, REVIEW
-- anomaly_score must be between 0.0 and 1.0
+- anomaly_score must be between 0.0 and 1.0 (0.0 for pass, >0.6 for fail)
 - confidence must be between 0.0 and 1.0
-- defects must be a list (empty if PASS)
-- severity must be: low, medium, or high
-- region coordinates must be normalized between 0.0 and 1.0
-- return empty defects list for PASS decisions"""
+- defects must be an empty list [] for PASS decisions
+- return defects ONLY for genuinely defective items or regions"""
 
 
 def build_product_context_prompt(product_context) -> str:

@@ -151,10 +151,15 @@ async def create_inspection(
     runtime_completed = datetime.utcnow()
     processing_time_ms = int((time.time() - start_time) * 1000)
 
+    # Calibrate defects against visual evidence
+    from app.services.heatmap.generator import calibrate_defects
+    decision_val = result.decision.value if hasattr(result.decision, "value") else str(result.decision)
+    calibrated_defects = calibrate_defects(result.defects, original_bytes, decision=decision_val)
+
     # Generate heatmap
     heatmap_bytes = None
     try:
-        if result.anomaly_map is not None:
+        if result.engine_type != "vlm" and result.anomaly_map is not None:
             # ML or demo mode: use native anomaly map
             import io, numpy as np
             from PIL import Image
@@ -171,11 +176,9 @@ async def create_inspection(
                 ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
                 annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
                 heatmap_bytes=annotated_bytes.getvalue()
-        elif result.defects and any(
-            d.get("region") for d in result.defects if isinstance(d, dict)
-        ):
+        elif result.decision != Decision.PASS and calibrated_defects:
             # VLM with regions
-            regions = [d["region"] for d in result.defects if isinstance(d, dict) and d.get("region")]
+            regions = [d["region"] for d in calibrated_defects if isinstance(d, dict) and d.get("region")]
             heatmap_bytes, _ = generate_heatmap_from_regions(regions, original_bytes)
         else:
             heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
@@ -214,7 +217,7 @@ async def create_inspection(
 
     # Persist defects
     defect_responses = []
-    for d in result.defects:
+    for d in calibrated_defects:
         if not isinstance(d, dict):
             continue
         severity_str = d.get("severity", "medium")

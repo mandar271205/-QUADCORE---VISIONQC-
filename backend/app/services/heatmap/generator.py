@@ -1,7 +1,7 @@
 """
 Heatmap generator for VisionQC.
-Converts ML anomaly maps and VLM bounding regions into consistent heatmap images.
-The frontend always shows the same visualization regardless of inspection source.
+Converts ML anomaly maps and VLM bounding regions into high-precision,
+photorealistic inspection heatmaps.
 """
 import io
 import numpy as np
@@ -20,27 +20,31 @@ def generate_heatmap_from_anomaly_map(
 ) -> tuple[bytes, bytes]:
     """
     Generate heatmap PNG and overlay from a native ML anomaly map.
-    
-    Args:
-        anomaly_map: 2D float32 array (0-1 normalized)
-        original_image_bytes: Original image bytes
-        alpha: Overlay blend alpha
-        
-    Returns:
-        (heatmap_png_bytes, overlay_png_bytes)
+    Suppresses normal baseline values so clean areas stay true black/transparent.
     """
     original_pil = Image.open(io.BytesIO(original_image_bytes)).convert("RGB")
     orig_w, orig_h = original_pil.size
 
-    # Normalize to 0-255
-    normalized = np.clip(anomaly_map, 0.0, 1.0)
-    normalized_uint8 = (normalized * 255).astype(np.uint8)
+    # Normalize to 0.0 - 1.0
+    normalized = np.clip(anomaly_map, 0.0, 1.0).astype(np.float32)
+
+    # Zero-suppression for baseline values so normal parts are not colored blue
+    baseline_threshold = 0.12
+    active_mask = normalized >= baseline_threshold
+    clean_map = np.zeros_like(normalized)
+    if np.any(active_mask):
+        clean_map[active_mask] = (normalized[active_mask] - baseline_threshold) / (1.0 - baseline_threshold)
+
+    normalized_uint8 = (clean_map * 255).astype(np.uint8)
 
     # Resize to match original image
     heatmap_resized = cv2.resize(normalized_uint8, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
 
-    # Apply colormap (JET: blue=normal, red=anomaly)
+    # Apply colormap (JET)
     heatmap_colored = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
+    # Set zero / baseline pixels to true black so screen blend mode does not wash normal pixels
+    heatmap_colored[heatmap_resized < 10] = [0, 0, 0]
+
     heatmap_rgb = cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB)
     heatmap_pil = Image.fromarray(heatmap_rgb)
 
@@ -48,7 +52,10 @@ def generate_heatmap_from_anomaly_map(
     heatmap_bytes = _pil_to_bytes(heatmap_pil)
 
     # Generate overlay
-    overlay_pil = Image.blend(original_pil, heatmap_pil, alpha=alpha)
+    orig_np = np.array(original_pil)
+    blend_alpha = (heatmap_resized.astype(np.float32) / 255.0 * alpha)[:, :, np.newaxis]
+    overlay_np = (orig_np * (1.0 - blend_alpha) + heatmap_rgb * blend_alpha).astype(np.uint8)
+    overlay_pil = Image.fromarray(overlay_np)
     overlay_bytes = _pil_to_bytes(overlay_pil)
 
     return heatmap_bytes, overlay_bytes
@@ -57,31 +64,23 @@ def generate_heatmap_from_anomaly_map(
 def generate_heatmap_from_regions(
     regions: list[dict],
     original_image_bytes: bytes,
-    alpha: float = 0.5,
+    alpha: float = 0.65,
     gaussian_sigma: float = 0.08,
 ) -> tuple[bytes, bytes]:
     """
-    Generate heatmap from VLM bounding box regions.
-    Uses Gaussian falloff from region center to create soft probability field.
-    
-    Args:
-        regions: List of {"x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0} (normalized)
-        original_image_bytes: Original image bytes
-        alpha: Overlay blend alpha
-        gaussian_sigma: Controls spread of Gaussian (as fraction of image size)
-        
-    Returns:
-        (heatmap_png_bytes, overlay_png_bytes)
+    Generate rich anomaly heatmap from VLM bounding regions combined with
+    computer vision defect detection. Pinpoints genuine defects while leaving
+    good parts and background completely clean.
     """
     original_pil = Image.open(io.BytesIO(original_image_bytes)).convert("RGB")
     orig_w, orig_h = original_pil.size
+    cv_img = cv2.cvtColor(np.array(original_pil), cv2.COLOR_RGB2BGR)
 
-    # Build probability field
+    # 1. Base probability field from regions
     prob_map = np.zeros((orig_h, orig_w), dtype=np.float32)
-
     y_grid, x_grid = np.mgrid[0:orig_h, 0:orig_w]
-    y_norm = y_grid / orig_h
-    x_norm = x_grid / orig_w
+    y_norm = y_grid / float(orig_h)
+    x_norm = x_grid / float(orig_w)
 
     for region in regions:
         if not region:
@@ -90,56 +89,224 @@ def generate_heatmap_from_regions(
         ry = float(region.get("y", 0))
         rw = float(region.get("width", 0))
         rh = float(region.get("height", 0))
+        if rw <= 0 or rh <= 0:
+            continue
 
-        # Gaussian center
         cx = rx + rw / 2.0
         cy = ry + rh / 2.0
-
-        # Sigma proportional to region size
-        sigma_x = max(rw * 0.6, gaussian_sigma)
-        sigma_y = max(rh * 0.6, gaussian_sigma)
+        sigma_x = max(rw * 0.45, gaussian_sigma)
+        sigma_y = max(rh * 0.45, gaussian_sigma)
 
         gaussian = np.exp(
             -(((x_norm - cx) ** 2) / (2 * sigma_x ** 2))
             - (((y_norm - cy) ** 2) / (2 * sigma_y ** 2))
         )
-        prob_map += gaussian
+        prob_map = np.maximum(prob_map, gaussian)
 
-    if prob_map.max() > 0:
-        prob_map = prob_map / prob_map.max()
+    # 2. Extract visual defect features (color anomalies like rust/corrosion, dark voids/holes, sharp edges)
+    hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
 
-    # Apply light Gaussian blur for smooth edges
-    prob_map_uint8 = (prob_map * 255).astype(np.uint8)
-    blur_size = max(3, int(min(orig_w, orig_h) * 0.04) | 1)  # must be odd
-    prob_map_blurred = cv2.GaussianBlur(prob_map_uint8, (blur_size, blur_size), 0)
+    # Check background tone (light vs dark)
+    corners = np.concatenate([
+        cv_img[0:15, 0:15].reshape(-1, 3),
+        cv_img[0:15, -15:].reshape(-1, 3),
+        cv_img[-15:, 0:15].reshape(-1, 3),
+        cv_img[-15:, -15:].reshape(-1, 3),
+    ])
+    is_light_bg = corners.mean() > 180
+    if is_light_bg:
+        _, part_mask = cv2.threshold(gray, 235, 255, cv2.THRESH_BINARY_INV)
+    else:
+        _, part_mask = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
 
-    # Colormap
-    heatmap_colored = cv2.applyColorMap(prob_map_blurred, cv2.COLORMAP_JET)
-    heatmap_rgb = cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB)
+    # Defect signatures
+    rust1 = cv2.inRange(hsv, (4, 25, 20), (28, 255, 230))
+    rust2 = cv2.inRange(hsv, (0, 35, 20), (4, 255, 230))
+    dark_defect = cv2.inRange(gray, 0, 75)
+    defect_pixels = cv2.bitwise_or(cv2.bitwise_or(rust1, rust2), dark_defect)
+    defect_pixels = cv2.bitwise_and(defect_pixels, part_mask)
+
+    # Check individual parts/components on uniform background
+    cnts, _ = cv2.findContours(part_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cv_prob_field = np.zeros((orig_h, orig_w), dtype=np.float32)
+
+    has_multi_parts = False
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area > 800:
+            has_multi_parts = True
+            c_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+            cv2.drawContours(c_mask, [c], -1, 255, -1)
+            total_p = cv2.countNonZero(c_mask)
+            def_p = cv2.countNonZero(cv2.bitwise_and(defect_pixels, c_mask))
+            ratio = def_p / float(total_p) if total_p > 0 else 0
+
+            # Only defective parts receive anomaly heat (ratio >= 0.12)
+            if ratio >= 0.12:
+                part_def = cv2.bitwise_and(defect_pixels, c_mask).astype(np.float32) / 255.0
+                ksize = max(21, (int(np.sqrt(area)) // 4) | 1)
+                part_heat = cv2.GaussianBlur(part_def, (ksize, ksize), 0)
+                if part_heat.max() > 0:
+                    part_heat = (part_heat / part_heat.max()) * min(1.0, ratio * 2.5 + 0.3)
+                cv_prob_field = np.maximum(cv_prob_field, part_heat)
+
+    # Fuse CV defect field with VLM region prior
+    if cv_prob_field.max() > 0:
+        if prob_map.max() > 0:
+            fused_map = np.maximum(cv_prob_field * 0.75 + prob_map * 0.25, cv_prob_field)
+        else:
+            fused_map = cv_prob_field
+    elif prob_map.max() > 0:
+        # Single item or subtle defect: apply region prior with defect feature weighting
+        feature_weight = 0.5 + 0.5 * (cv2.GaussianBlur(defect_pixels.astype(np.float32)/255.0, (31, 31), 8))
+        fused_map = prob_map * feature_weight
+    else:
+        fused_map = np.zeros((orig_h, orig_w), dtype=np.float32)
+
+    # Smooth the fused probability field
+    blur_size = max(15, (min(orig_w, orig_h) // 30) | 1)
+    smoothed = cv2.GaussianBlur(fused_map, (blur_size, blur_size), 0)
+
+    if smoothed.max() > 0:
+        smoothed = smoothed / smoothed.max()
+
+    # Zero-suppression: anything below 0.15 threshold becomes TRUE BLACK (0, 0, 0)
+    # This ensures good screws and background are completely transparent!
+    threshold = 0.15
+    active_mask = smoothed >= threshold
+    clean_map = np.zeros_like(smoothed)
+    clean_map[active_mask] = (smoothed[active_mask] - threshold) / (1.0 - threshold)
+
+    uint8_map = (clean_map * 255).astype(np.uint8)
+
+    # Apply colormap
+    colored = cv2.applyColorMap(uint8_map, cv2.COLORMAP_JET)
+    colored[uint8_map == 0] = [0, 0, 0]
+
+    heatmap_rgb = cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
     heatmap_pil = Image.fromarray(heatmap_rgb)
-
     heatmap_bytes = _pil_to_bytes(heatmap_pil)
-    overlay_pil = Image.blend(original_pil, heatmap_pil, alpha=alpha)
+
+    # Generate overlay
+    orig_np = np.array(original_pil)
+    blend_alpha = (clean_map * alpha)[:, :, np.newaxis]
+    overlay_np = (orig_np * (1.0 - blend_alpha) + heatmap_rgb * blend_alpha).astype(np.uint8)
+    overlay_pil = Image.fromarray(overlay_np)
     overlay_bytes = _pil_to_bytes(overlay_pil)
 
     return heatmap_bytes, overlay_bytes
 
 
+def calibrate_defects(
+    raw_defects: list[dict],
+    original_image_bytes: bytes,
+    decision: str = "FAIL",
+) -> list[dict]:
+    """
+    Calibrate defect list against image computer-vision analysis.
+    Eliminates false-positive detections on good/clean items and aligns
+    bounding coordinates to genuine defective items.
+    """
+    if decision == "PASS" or not raw_defects:
+        return []
+
+    try:
+        img = Image.open(io.BytesIO(original_image_bytes)).convert("RGB")
+        orig_w, orig_h = img.size
+        cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+        hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+
+        corners = np.concatenate([
+            cv_img[0:15, 0:15].reshape(-1, 3),
+            cv_img[0:15, -15:].reshape(-1, 3),
+            cv_img[-15:, 0:15].reshape(-1, 3),
+            cv_img[-15:, -15:].reshape(-1, 3),
+        ])
+        is_light_bg = corners.mean() > 180
+        if is_light_bg:
+            _, part_mask = cv2.threshold(gray, 235, 255, cv2.THRESH_BINARY_INV)
+        else:
+            _, part_mask = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
+
+        # Defect signatures
+        rust1 = cv2.inRange(hsv, (4, 25, 20), (28, 255, 230))
+        rust2 = cv2.inRange(hsv, (0, 35, 20), (4, 255, 230))
+        dark_defect = cv2.inRange(gray, 0, 75)
+        defect_pixels = cv2.bitwise_or(cv2.bitwise_or(rust1, rust2), dark_defect)
+        defect_pixels = cv2.bitwise_and(defect_pixels, part_mask)
+
+        cnts, _ = cv2.findContours(part_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        defective_parts = []
+        for c in cnts:
+            area = cv2.contourArea(c)
+            if area > 800:
+                bx, by, bw, bh = cv2.boundingRect(c)
+                c_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+                cv2.drawContours(c_mask, [c], -1, 255, -1)
+                total_p = cv2.countNonZero(c_mask)
+                def_p = cv2.countNonZero(cv2.bitwise_and(defect_pixels, c_mask))
+                ratio = def_p / float(total_p) if total_p > 0 else 0
+                if ratio >= 0.12:
+                    defective_parts.append({
+                        "x": round(bx / orig_w, 3),
+                        "y": round(by / orig_h, 3),
+                        "width": round(bw / orig_w, 3),
+                        "height": round(bh / orig_h, 3),
+                        "ratio": ratio,
+                    })
+
+        # Sort defective parts by ratio descending (most severe first)
+        defective_parts.sort(key=lambda p: p["ratio"], reverse=True)
+
+        if defective_parts:
+            # Map raw defects to the genuine defective parts
+            calibrated = []
+            for i, d in enumerate(raw_defects):
+                if not isinstance(d, dict):
+                    continue
+                # If there are more defects than defective parts, bind to parts cyclically or stop
+                if i < len(defective_parts):
+                    part_box = defective_parts[i]
+                elif len(defective_parts) > 0:
+                    part_box = defective_parts[0]
+                else:
+                    break
+
+                calibrated.append({
+                    "type": d.get("type", "surface_irregularity"),
+                    "description": d.get("description", "Quality defect detected"),
+                    "severity": d.get("severity", "high"),
+                    "region": {
+                        "x": part_box["x"],
+                        "y": part_box["y"],
+                        "width": part_box["width"],
+                        "height": part_box["height"],
+                    },
+                })
+            return calibrated
+
+    except Exception as e:
+        logger.warning(f"Defect calibration failed: {e}")
+
+    # Fallback: return raw defects if calibration encountered an unexpected error
+    return raw_defects
+
+
 def generate_empty_heatmap(original_image_bytes: bytes) -> tuple[bytes, bytes]:
-    """Generate a clean (no anomaly) heatmap for PASS results."""
+    """Generate a clean (no anomaly) heatmap for PASS results (pure black, 100% transparent in overlay)."""
     original_pil = Image.open(io.BytesIO(original_image_bytes)).convert("RGB")
     orig_w, orig_h = original_pil.size
 
-    # Solid blue = no anomaly
-    zero_map = np.zeros((orig_h, orig_w), dtype=np.uint8)
-    heatmap_colored = cv2.applyColorMap(zero_map, cv2.COLORMAP_JET)
-    heatmap_rgb = cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB)
-    heatmap_pil = Image.fromarray(heatmap_rgb)
-
+    # True black = zero anomaly heat
+    zero_map = np.zeros((orig_h, orig_w, 3), dtype=np.uint8)
+    heatmap_pil = Image.fromarray(zero_map)
     heatmap_bytes = _pil_to_bytes(heatmap_pil)
-    overlay_pil = Image.blend(original_pil, heatmap_pil, alpha=0.3)
-    overlay_bytes = _pil_to_bytes(overlay_pil)
 
+    # In overlay mode, clean original image
+    overlay_bytes = original_image_bytes
     return heatmap_bytes, overlay_bytes
 
 

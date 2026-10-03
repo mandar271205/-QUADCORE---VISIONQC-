@@ -87,8 +87,8 @@ def _vlm_to_internal(
         threshold,
         vlm_result.decision,
     )
-    # Build anomaly_map from VLM regions if present, else None
-    anomaly_map_bytes = _vlm_regions_to_map(vlm_result)
+    # VLM localization is handled cleanly via generate_heatmap_from_regions
+    anomaly_map_bytes = None
 
     return InternalInspectionResult(
         decision=final_decision,
