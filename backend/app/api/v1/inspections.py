@@ -3,6 +3,7 @@ Inspections API endpoints.
 Handles image upload, inspection execution, history, and detail retrieval.
 IMPORTANT: Provider/engine details are NEVER returned in any public response.
 """
+import json
 import uuid
 import time
 from datetime import datetime
@@ -64,30 +65,35 @@ async def create_inspection(
     except Exception:
         raise HTTPException(status_code=422, detail="Could not read uploaded image.")
 
-    # Preprocess
+    # Resolve product/profile before preprocessing so Member 1 receives a
+    # lossless PNG even in model-primary and parallel modes.
     effective_mode = resolve_inspection_mode(inspection_mode, client_type)
-    try:
-        ml_only = effective_mode == 'model_only'
-        original_bytes, inference_bytes = validate_and_preprocess(image_bytes, image.content_type,
-                                                                  lossless_inference=ml_only)
-    except (InvalidImageError, ImageTooLargeError) as e:
-        raise visionqc_exception_to_http(e)
-
-    # Load product context
     product = None
     product_context = ProductContext(threshold=0.55)
 
     if product_id:
         try:
             prod_uuid = uuid.UUID(product_id)
-            result = await db.execute(select(Product).where(Product.id == prod_uuid))
+            from sqlalchemy.orm import selectinload as _sil
+            result = await db.execute(
+                select(Product)
+                .options(_sil(Product.reference_images))
+                .where(Product.id == prod_uuid)
+            )
             product = result.scalar_one_or_none()
             if product:
+                # Pre-populate reference_images so VLM reference path uses them
+                ref_urls = [
+                    ri.storage_url
+                    for ri in (product.reference_images or [])
+                    if ri.is_active and ri.storage_url
+                ]
                 product_context = ProductContext(
                     product_id=str(product.id),
                     product_name=product.name,
                     product_description=product.description,
                     threshold=product.threshold,
+                    reference_images=ref_urls,
                 )
         except Exception:
             pass
@@ -95,9 +101,27 @@ async def create_inspection(
         if product is None:
             raise HTTPException(status_code=422, detail='Select an existing product for inspection.')
 
-    if not settings.DEMO_MODE and effective_mode == 'model_only':
+    selected_ml_engine = None
+    if product is not None and not settings.DEMO_MODE:
         from app.services.ml.registry import MLRegistry
-        if product is None or MLRegistry.get(str(product.id)) is None:
+        selected_ml_engine = MLRegistry.get(str(product.id))
+
+    try:
+        ml_only = effective_mode == 'model_only'
+        member1_profile = bool(getattr(selected_ml_engine, 'is_member1', False))
+        preserve_member1_pixels = member1_profile and effective_mode in (
+            'model_primary', 'parallel_first_valid'
+        )
+        original_bytes, inference_bytes = validate_and_preprocess(
+            image_bytes,
+            image.content_type,
+            lossless_inference=ml_only or preserve_member1_pixels,
+        )
+    except (InvalidImageError, ImageTooLargeError) as e:
+        raise visionqc_exception_to_http(e)
+
+    if not settings.DEMO_MODE and effective_mode == 'model_only':
+        if product is None or selected_ml_engine is None:
             raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
 
     # Validate client_type
@@ -114,6 +138,8 @@ async def create_inspection(
             product_context=product_context,
             mode_override=inspection_mode,
             client_type=ct.value,
+            # Pass model_status for inspection-while-training routing decision
+            model_status=product.model_status.value if product else None,
         )
     except (AllProvidersFailedError, Exception) as e:
         logger.error(f"Inspection failed for {inspection_id}: {type(e).__name__}: {e}")
@@ -171,7 +197,7 @@ async def create_inspection(
         logger.warning(f"Storage upload failed (non-fatal): {e}")
 
     # Persist inspection
-    threshold_used = product_context.threshold
+    threshold_used = result.threshold if result.threshold is not None else product_context.threshold
     db_inspection = Inspection(
         id=inspection_id,
         product_id=product.id if product else None,
@@ -230,11 +256,12 @@ async def create_inspection(
         inspection_id=inspection_id,
         engine_type=result.engine_type,
         provider=result.provider,
-        engine_name=result.provider,
+        engine_name=f"{result.provider} [{result.winning_reason}]"[:255] if result.winning_reason else result.provider,
         started_at=runtime_started,
         completed_at=runtime_completed,
         latency_ms=result.latency_ms,
         success=True,
+        error_message=json.dumps({"winning_reason": result.winning_reason, "parallel_provenance": result.parallel_provenance, "vlm_reference_path_used": result.vlm_reference_path_used, "model_status_at_inspection": result.model_status_at_inspection}) if (result.parallel_provenance or result.vlm_reference_path_used or result.winning_reason) else None,
     )
     db.add(db_runtime)
 

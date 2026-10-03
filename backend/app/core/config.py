@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     ML_DEVICE: str = "cpu"
     ML_CACHE_SIZE: int = 2
     ML_TORCH_THREADS: int = 4
+    # Member 1 PatchCore runs in a separate Python process because its
+    # anomalib/PyTorch stack is incompatible with the Member 2 runtime.
+    ML_M1_ENABLED: bool = False
+    ML_M1_PYTHON: str = "python"
+    ML_M1_MODEL_ROOT: str = "./member1-models"
+    ML_M1_WORK_ROOT: str = ""
+    ML_M1_WORKER_STARTUP_TIMEOUT: int = 120
+    ML_M1_REQUEST_TIMEOUT: int = 35
+    ML_M1_CACHE_SIZE: int = 2
     MOBILE_USE_ML: bool = False
     ENGINE_TIMEOUT_SECONDS: int = 8
     MIN_ACCEPT_CONFIDENCE: float = 0.70

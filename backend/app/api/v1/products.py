@@ -26,6 +26,42 @@ async def trained_profiles():
     return public_profiles()
 
 
+@router.post('/{product_id}/learn-normal', status_code=status.HTTP_202_ACCEPTED)
+async def learn_normal(product_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Start the Learn Normal training workflow for a product.
+
+    Requires at least 20 GOOD reference images to have been uploaded first.
+    The endpoint returns immediately (HTTP 202); training continues in the background.
+    Poll GET /products/{id}/learn-normal/status or GET /products/{id} to track
+    model_status transitions:  not_available → training → ready / validation_required.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(404, 'Product not found.')
+    from app.services.ml.learn_normal import learn_normal_service
+    try:
+        return await learn_normal_service.start(product, db)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@router.get('/{product_id}/learn-normal/status')
+async def learn_normal_status(product_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Return the current training status for a product.
+
+    Clients should poll this endpoint (or GET /products/{id}) to track progress.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(404, 'Product not found.')
+    from app.services.ml.learn_normal import learn_normal_service, MIN_REFERENCE_IMAGES
+    return await learn_normal_service.get_status(product)
+
+
 @router.put('/{product_id}/model-profile', response_model=ProductResponse)
 async def assign_profile(product_id: uuid.UUID, body: ProfileAssignment,
                          db: AsyncSession = Depends(get_db)):

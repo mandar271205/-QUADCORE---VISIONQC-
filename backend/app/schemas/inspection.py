@@ -74,4 +74,10 @@ class InternalInspectionResult(BaseModel):
     provider: str = "unknown"                     # internal
     latency_ms: int = 0                           # internal
     raw_response: Optional[str] = None            # internal debug
-    roi_region: Optional[dict] = None              # internal; drawn into heatmap
+    roi_region: Optional[dict] = None             # internal; drawn into heatmap
+    threshold: Optional[float] = None             # internal; native model threshold
+    # Parallel/hybrid provenance — internal debug only, NEVER in public API responses
+    winning_reason: Optional[str] = None          # why this result was chosen
+    parallel_provenance: Optional[List[dict]] = None  # [{engine, latency_ms, status}]
+    vlm_reference_path_used: bool = False         # VLM inspection used reference images
+    model_status_at_inspection: Optional[str] = None  # product model_status snapshot

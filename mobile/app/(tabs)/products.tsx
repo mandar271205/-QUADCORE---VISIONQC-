@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getProducts } from '../../src/api';
+import * as ImagePicker from 'expo-image-picker';
+import { getProducts, uploadReferenceImage, triggerLearnNormal } from '../../src/api';
 import { apiClient } from '../../src/api/client';
 import type { Product } from '../../src/types';
 
@@ -38,6 +39,7 @@ export default function ProductsScreen() {
   const [code, setCode] = useState('');
   const [threshold, setThreshold] = useState('0.45');
   const [saving, setSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState<Record<string, string>>({});
 
   const fetchProducts = useCallback(async (isRefresh = false) => {
     try {
@@ -87,6 +89,52 @@ export default function ProductsScreen() {
     }
   };
 
+  const handleAddReference = async (productId: string) => {
+    try {
+      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!granted) {
+        Alert.alert('Permission required', 'Photo library access needed to upload reference images.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.85,
+        allowsMultipleSelection: false,
+      });
+      if (!res.canceled && res.assets[0]?.uri) {
+        setActionLoading(prev => ({ ...prev, [productId]: 'Uploading reference...' }));
+        await uploadReferenceImage(productId, res.assets[0].uri);
+        Alert.alert('Success', 'GOOD reference image added.');
+        await fetchProducts(true);
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload reference image.');
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+    }
+  };
+
+  const handleLearnNormal = async (productId: string) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [productId]: 'Starting Learn Normal...' }));
+      await triggerLearnNormal(productId);
+      Alert.alert('Learn Normal Started', 'Product model training pipeline is running in background.');
+      await fetchProducts(true);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to start Learn Normal.');
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+    }
+  };
+
   const renderItem = ({ item }: { item: Product }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -106,8 +154,30 @@ export default function ProductsScreen() {
 
       <View style={styles.specsRow}>
         <View style={styles.specItem}>
-          <Text style={styles.specLabel}>DETECTION MODEL</Text>
-          <Text style={styles.specVal}>Few-Shot Ensemble</Text>
+          <Text style={styles.specLabel}>STATUS</Text>
+          <Text
+            style={[
+              styles.specVal,
+              {
+                color:
+                  item.model_status === 'ready'
+                    ? COLORS.pass
+                    : item.model_status === 'training'
+                    ? COLORS.accent
+                    : (item.reference_image_count || 0) >= 20
+                    ? COLORS.accent
+                    : COLORS.review,
+              },
+            ]}
+          >
+            {item.model_status === 'ready'
+              ? 'Ready'
+              : item.model_status === 'training'
+              ? 'Learning Normal'
+              : (item.reference_image_count || 0) >= 20
+              ? 'Ready to Learn'
+              : `Collecting (${item.reference_image_count || 0}/20)`}
+          </Text>
         </View>
         <View style={styles.specItem}>
           <Text style={styles.specLabel}>SENSITIVITY</Text>
@@ -115,6 +185,30 @@ export default function ProductsScreen() {
             {item.threshold < 0.4 ? 'Strict' : item.threshold > 0.6 ? 'Relaxed' : 'Balanced'}
           </Text>
         </View>
+      </View>
+
+      <View style={styles.cardActionRow}>
+        <TouchableOpacity
+          style={styles.cardActionBtn}
+          onPress={() => handleAddReference(item.id)}
+          disabled={!!actionLoading[item.id]}
+        >
+          <Text style={styles.cardActionBtnText}>
+            {actionLoading[item.id] === 'Uploading reference...' ? 'Uploading...' : '📷 + Ref'}
+          </Text>
+        </TouchableOpacity>
+
+        {item.model_status !== 'ready' && (item.reference_image_count || 0) >= 20 && (
+          <TouchableOpacity
+            style={[styles.cardActionBtn, styles.cardActionBtnPrimary]}
+            onPress={() => handleLearnNormal(item.id)}
+            disabled={item.model_status === 'training' || !!actionLoading[item.id]}
+          >
+            <Text style={[styles.cardActionBtnText, styles.cardActionBtnPrimaryText]}>
+              {item.model_status === 'training' ? 'Training...' : '⚡ Learn Normal'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -433,5 +527,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 13,
+  },
+  cardActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  cardActionBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardActionBtnText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardActionBtnPrimary: {
+    backgroundColor: COLORS.accent,
+  },
+  cardActionBtnPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });

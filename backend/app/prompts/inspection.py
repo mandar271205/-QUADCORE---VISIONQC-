@@ -75,4 +75,13 @@ def build_product_context_prompt(product_context) -> str:
         f"(score above this indicates FAIL)"
     )
 
+    if getattr(product_context, "reference_images", None):
+        ref_count = len(product_context.reference_images)
+        parts.append(
+            f"\nREFERENCE BASELINE DATA:\n"
+            f"This product has {ref_count} verified GOOD reference baseline samples established during setup.\n"
+            f"Standard geometry, normal surface finish, and nominal manufacturing variations consistent with these reference samples are acceptable.\n"
+            f"Only flag genuine anomalies, cracks, deformation, contamination, missing/misaligned elements, or surface defects exceeding nominal tolerance."
+        )
+
     return "\n".join(parts)

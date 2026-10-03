@@ -9,6 +9,17 @@ export interface TrainedProfile {
   metrics: { f2: number; precision: number; recall: number; accuracy: number; false_reject_rate?: number | null };
 }
 
+export interface LearnNormalStatus {
+  product_id: string;
+  model_status: string;
+  reference_image_count: number;
+  min_images_required: number;
+  can_start_training: boolean;
+  status?: string;
+  message?: string;
+  estimated_seconds?: number;
+}
+
 export async function getTrainedProfiles(): Promise<TrainedProfile[]> {
   const { data } = await apiClient.get<TrainedProfile[]>('/products/trained-profiles');
   return data;
@@ -16,6 +27,16 @@ export async function getTrainedProfiles(): Promise<TrainedProfile[]> {
 
 export async function assignModelProfile(id: string, profileId: string): Promise<Product> {
   const { data } = await apiClient.put<Product>(`/products/${id}/model-profile`, { profile_id: profileId });
+  return data;
+}
+
+export async function startLearnNormal(productId: string): Promise<LearnNormalStatus> {
+  const { data } = await apiClient.post<LearnNormalStatus>(`/products/${productId}/learn-normal`);
+  return data;
+}
+
+export async function getLearnNormalStatus(productId: string): Promise<LearnNormalStatus> {
+  const { data } = await apiClient.get<LearnNormalStatus>(`/products/${productId}/learn-normal/status`);
   return data;
 }
 

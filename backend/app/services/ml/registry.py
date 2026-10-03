@@ -7,6 +7,7 @@ from app.services.ml.base import BaseMLEngine
 from app.services.ml.mock import MockMLEngine
 from app.services.ml.future_model import FutureMLEngine
 from app.services.ml.profile_engine import ProfileMLEngine
+from app.services.ml.member1_engine import Member1PatchCoreEngine
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -36,6 +37,7 @@ class MLRegistry:
 
     # TODO ML TEAM: Register your trained engine here
     _engines: list[BaseMLEngine] = [
+        Member1PatchCoreEngine(),
         ProfileMLEngine(),
         FutureMLEngine(),
     ]
@@ -46,10 +48,12 @@ class MLRegistry:
         if settings.DEMO_MODE:
             return MockMLEngine()
 
-        if not settings.ML_ENABLED:
-            return None
-
         for engine in cls._engines:
+            if getattr(engine, "is_member1", False):
+                if not settings.ML_M1_ENABLED:
+                    continue
+            elif not settings.ML_ENABLED:
+                continue
             if engine.is_model_available(product_id):
                 return engine
 

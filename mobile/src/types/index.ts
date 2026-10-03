@@ -15,6 +15,8 @@ export interface Product {
   code: string;
   description?: string;
   threshold: number;
+  model_status?: 'not_available' | 'training' | 'ready' | 'validation_required';
+  reference_image_count?: number;
 }
 
 export interface InspectionResponse {

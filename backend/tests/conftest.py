@@ -27,6 +27,8 @@ async def isolated_database(tmp_path, monkeypatch):
             yield session
 
     application.dependency_overrides[get_db] = test_db
+    monkeypatch.setattr('app.db.session.AsyncSessionLocal', session_factory)
+    monkeypatch.setattr('app.services.ml.learn_normal.AsyncSessionLocal', session_factory)
     yield
     application.dependency_overrides.pop(get_db, None)
     await engine.dispose()

@@ -25,6 +25,8 @@ class MLInspectionResult:
     latency_ms: int = 0
     model_name: str = "unknown"              # internal debug only
     roi_region: Optional[dict] = None        # normalized product box, internal
+    threshold: Optional[float] = None        # native threshold when supplied by the model
+    native_verdict: Optional[str] = None    # PASS/FAIL emitted by a model's own postprocessor
 
 
 class BaseMLEngine(ABC):

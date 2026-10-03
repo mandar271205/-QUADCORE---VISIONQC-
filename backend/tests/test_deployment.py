@@ -124,7 +124,13 @@ async def test_system_readiness_requires_an_actual_engine(monkeypatch):
     monkeypatch.setattr(settings,'INSPECTION_MODE','model_only')
     async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
         status=(await client.get('/api/v1/system/status')).json()
-        assert status=={'inspection_available':False,'database_available':True,'storage_available':True}
+        assert status['inspection_available'] is False
+        assert status['database_available'] is True
+        assert status['storage_available'] is True
+        assert isinstance(status['vlm_available'], bool)
+        assert status['member1_runtime']['enabled'] is False
+        assert status['member1_runtime']['worker_alive'] is False
+        assert status['member2_runtime']['enabled'] is False
         product=(await client.post('/api/v1/products',json={'name':'UTC fixture','code':'UTC'})).json()
         assert product['created_at'].endswith('Z')
 

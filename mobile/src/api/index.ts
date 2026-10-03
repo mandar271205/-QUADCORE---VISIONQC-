@@ -51,3 +51,21 @@ export async function getInspection(id: string): Promise<InspectionResponse> {
 export async function deleteInspection(id: string): Promise<void> {
   await apiClient.delete(`/inspections/${id}`);
 }
+
+export async function uploadReferenceImage(productId: string, imageUri: string): Promise<any> {
+  const form = new FormData();
+  form.append('file', {
+    uri: imageUri,
+    type: 'image/jpeg',
+    name: 'ref.jpg',
+  } as any);
+  const { data } = await apiClient.post(`/products/${productId}/reference-images`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function triggerLearnNormal(productId: string): Promise<any> {
+  const { data } = await apiClient.post(`/products/${productId}/learn-normal`);
+  return data;
+}

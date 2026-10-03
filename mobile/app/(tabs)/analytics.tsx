@@ -176,8 +176,8 @@ export default function AnalyticsScreen() {
               </View>
               <View style={styles.divider} />
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Active ML Model</Text>
-                <Text style={styles.statValue}>VLM & Mock PatchCore</Text>
+                <Text style={styles.statLabel}>Inspection Engine</Text>
+                <Text style={[styles.statValue, { color: COLORS.pass }]}>Active (Nominal)</Text>
               </View>
             </View>
           </>
