@@ -17,7 +17,7 @@ class VLMRegistry:
 
     @classmethod
     def get_ordered_engines(cls) -> list[BaseVLMEngine]:
-        """Return available engines in fallback order: Gemini → Groq → NVIDIA."""
+        """Return available engines."""
         if cls._engines is None:
             cls._engines = [
                 GeminiVisionEngine(),
@@ -28,6 +28,14 @@ class VLMRegistry:
         if not available:
             logger.warning("No VLM providers are configured. Only DEMO_MODE will work.")
         return available
+
+    @classmethod
+    async def close(cls) -> None:
+        for engine in cls._engines or []:
+            close = getattr(engine, "close", None)
+            if close is not None:
+                await close()
+        cls._engines = None
 
     @classmethod
     def reset(cls) -> None:

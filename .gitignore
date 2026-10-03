@@ -13,6 +13,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!web/src/lib/
 parts/
 sdist/
 var/
@@ -111,3 +112,5 @@ Thumbs.db
 # The original models/ pattern also hid the ORM source package.
 !backend/app/db/models/
 !backend/app/db/models/**
+backend/app/db/models/__pycache__/
+*.tsbuildinfo

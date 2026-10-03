@@ -1,17 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ScanLine, XCircle, CheckCircle, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
 import { getTodayAnalytics } from '../api/analytics';
 import { getInspections } from '../api/inspections';
 import type { TodayAnalytics, InspectionListItem } from '../types';
 import { DecisionBadge } from '../components/common/DecisionBadge';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
+  PieChart, Pie, Legend, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b' };
+const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b', RETAKE: '#64748b' };
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<TodayAnalytics | null>(null);
   const [recent, setRecent] = useState<InspectionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,28 +43,31 @@ export const DashboardPage: React.FC = () => {
         { name: 'PASS', value: analytics.passed, fill: COLORS.PASS },
         { name: 'FAIL', value: analytics.failed, fill: COLORS.FAIL },
         { name: 'REVIEW', value: analytics.review, fill: COLORS.REVIEW },
-      ]
+        { name: 'RETAKE', value: analytics.retake, fill: COLORS.RETAKE },
+      ].filter(d => d.value > 0)
     : [];
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="spinner w-8 h-8" />
+        <div className="spinner w-8 h-8 border-primary/20 border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-vqc-text">Dashboard</h1>
-          <p className="text-vqc-muted text-sm mt-1">Today's quality inspection overview</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Today's quality inspection overview</p>
         </div>
-        <Link to="/inspect" className="btn-primary flex items-center gap-2">
-          <ScanLine className="w-4 h-4" />
-          Start Inspection
+        <Link to="/inspect">
+          <Button size="lg" className="font-semibold tracking-wide shadow-sm">
+            <ScanLine className="w-4 h-4 mr-2" />
+            Start Inspection
+          </Button>
         </Link>
       </div>
 
@@ -69,148 +76,164 @@ export const DashboardPage: React.FC = () => {
         {[
           {
             icon: ScanLine, label: 'Total Inspections',
-            value: analytics?.total ?? 0, color: 'text-vqc-accent',
-          },
-          {
-            icon: XCircle, label: 'Rejected',
-            value: analytics?.failed ?? 0, color: 'text-vqc-fail',
+            value: analytics?.total ?? 0, color: 'text-primary',
           },
           {
             icon: CheckCircle, label: 'Pass Rate',
             value: analytics
-              ? analytics.total > 0
-                ? `${((analytics.passed / analytics.total) * 100).toFixed(1)}%`
+              ? analytics.total - analytics.retake > 0
+                ? `${((analytics.passed / (analytics.total - analytics.retake)) * 100).toFixed(1)}%`
                 : '—'
               : '—',
-            color: 'text-vqc-pass',
+            color: 'text-green-500',
           },
           {
-            icon: Clock, label: 'Avg. Time',
-            value: analytics
-              ? `${Math.round(analytics.average_processing_time_ms)}ms`
-              : '—',
-            color: 'text-vqc-muted',
+            icon: XCircle, label: 'Rejected',
+            value: analytics?.failed ?? 0, color: 'text-destructive',
+          },
+          {
+            icon: AlertTriangle, label: 'Pending Reviews',
+            value: analytics?.pending_reviews ?? 0,
+            color: (analytics?.pending_reviews ?? 0) > 0 ? 'text-amber-500' : 'text-muted-foreground',
           },
         ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className="card">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-vqc-panel rounded-lg flex items-center justify-center">
-                <Icon className={`w-4 h-4 ${color}`} />
+          <Card key={label} className="shadow-sm border-border bg-card">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">{label}</div>
+                <div className={`text-3xl font-bold ${color}`}>{value}</div>
               </div>
-            </div>
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            <div className="text-vqc-muted text-xs mt-1">{label}</div>
-          </div>
+              <div className="w-12 h-12 bg-secondary/80 rounded-full flex items-center justify-center border border-border">
+                <Icon className={`w-6 h-6 ${color}`} />
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Donut chart */}
-        <div className="card">
-          <h3 className="section-title">Decision Distribution</h3>
-          {analytics && analytics.total > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={85}
-                  paddingAngle={3}
-                >
-                  {pieData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#1a1d27', border: '1px solid #2d3348', borderRadius: 8 }}
-                  labelStyle={{ color: '#e2e8f0' }}
-                />
-                <Legend iconType="circle" iconSize={8} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[220px] flex items-center justify-center text-vqc-muted text-sm">
-              No inspections today
-            </div>
-          )}
-        </div>
+        <Card className="shadow-sm border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-lg">Decision Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {analytics && analytics.total > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={95}
+                    paddingAngle={3}
+                  >
+                    {pieData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} stroke="rgba(0,0,0,0)" />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#0F172A', border: '1px solid #334155', borderRadius: 8, color: '#F8FAFC' }}
+                    itemStyle={{ color: '#F8FAFC' }}
+                  />
+                  <Legend iconType="circle" iconSize={8} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm font-medium">
+                No inspections today
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Summary stats */}
-        <div className="card lg:col-span-2">
-          <h3 className="section-title">Today's Summary</h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Rejection Rate', value: `${analytics?.rejection_rate ?? 0}%`, color: 'text-vqc-fail' },
-              { label: 'Review Required', value: analytics?.review ?? 0, color: 'text-vqc-review' },
-              { label: 'Avg. Anomaly Score', value: `${((analytics?.average_anomaly_score ?? 0) * 100).toFixed(1)}%`, color: 'text-vqc-text' },
-              { label: 'Avg. Processing Time', value: `${Math.round(analytics?.average_processing_time_ms ?? 0)}ms`, color: 'text-vqc-text' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-vqc-border last:border-0">
-                <span className="text-vqc-muted text-sm">{label}</span>
-                <span className={`font-semibold text-sm ${color}`}>{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Card className="shadow-sm border-border bg-card lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Today's Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {[
+                { label: 'Rejection Rate', value: `${analytics?.rejection_rate ?? 0}%`, color: 'text-destructive' },
+                { label: 'Review Required', value: analytics?.review ?? 0, color: 'text-amber-500' },
+                { label: 'Image Retakes (Quality Issue)', value: analytics?.retake ?? 0, color: 'text-muted-foreground' },
+                { label: 'Avg. Anomaly Score', value: `${((analytics?.average_anomaly_score ?? 0) * 100).toFixed(1)}%`, color: 'text-foreground' },
+                { label: 'Avg. Processing Time', value: `${Math.round(analytics?.average_processing_time_ms ?? 0)}ms`, color: 'text-foreground' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-center justify-between py-3 px-2 border-b border-border/50 hover:bg-secondary/30 rounded-md transition-colors last:border-0">
+                  <span className="text-muted-foreground font-medium text-sm">{label}</span>
+                  <span className={`font-bold ${color}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent inspections */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="section-title mb-0">Recent Inspections</h3>
-          <Link to="/history" className="text-vqc-accent text-sm hover:underline flex items-center gap-1">
-            View all <ChevronRight className="w-3 h-3" />
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <p className="text-vqc-muted text-sm text-center py-8">No inspections yet. Run your first inspection.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-vqc-border">
-                  {['Time', 'Product', 'Decision', 'Score', 'Confidence', 'Duration'].map(h => (
-                    <th key={h} className="text-left text-vqc-muted font-medium py-2 px-3 text-xs uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((insp) => (
-                  <tr
-                    key={insp.inspection_id}
-                    className="border-b border-vqc-border/50 hover:bg-vqc-panel/50 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/history/${insp.inspection_id}`}
-                  >
-                    <td className="py-3 px-3 text-vqc-muted font-mono text-xs">
-                      {new Date(insp.created_at).toLocaleTimeString()}
-                    </td>
-                    <td className="py-3 px-3 text-vqc-text">
-                      {insp.product?.name ?? <span className="text-vqc-muted">—</span>}
-                    </td>
-                    <td className="py-3 px-3">
-                      <DecisionBadge decision={insp.decision} size="sm" />
-                    </td>
-                    <td className="py-3 px-3 text-vqc-text font-mono">
-                      {insp.anomaly_score.toFixed(3)}
-                    </td>
-                    <td className="py-3 px-3 text-vqc-text font-mono">
-                      {insp.confidence === 0 ? 'Unavailable' : `${(insp.confidence * 100).toFixed(1)}%`}
-                    </td>
-                    <td className="py-3 px-3 text-vqc-muted font-mono">
-                      {insp.processing_time_ms}ms
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card className="shadow-sm border-border bg-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg">Recent Inspections</CardTitle>
+            <CardDescription>Latest units processed through the system</CardDescription>
           </div>
-        )}
-      </div>
+          <Link to="/history">
+            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/90">
+              View all <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          {recent.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8">No inspections yet. Run your first inspection.</p>
+          ) : (
+            <Table>
+              <TableHeader className="bg-secondary/30">
+                <TableRow className="border-border">
+                  {['Time', 'Product', 'Decision', 'Score', 'Confidence', 'Duration'].map(h => (
+                    <TableHead key={h} className="text-muted-foreground font-semibold text-xs uppercase tracking-wider">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recent.map((insp) => (
+                  <TableRow
+                    key={insp.inspection_id}
+                    className="border-border/50 hover:bg-secondary/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/history/${insp.inspection_id}`)}
+                  >
+                    <TableCell className="text-muted-foreground font-mono text-xs">
+                      {new Date(insp.created_at).toLocaleTimeString()}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {insp.product?.name ?? <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <DecisionBadge decision={insp.decision} size="sm" />
+                    </TableCell>
+                    <TableCell className="text-foreground font-mono font-medium">
+                      {insp.anomaly_score.toFixed(3)}
+                    </TableCell>
+                    <TableCell className="text-foreground font-mono font-medium">
+                      {insp.confidence === 0
+                        ? 'Unavailable'
+                        : `${(insp.confidence * 100).toFixed(1)}%`}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-xs">
+                      {insp.processing_time_ms}ms
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -10,7 +10,15 @@ import json
 import os
 import random
 import shutil
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
 import time
 import traceback
 from dataclasses import asdict
@@ -235,9 +243,25 @@ if __name__=='__main__':
             if not marker.exists():
                 outstanding=True; continue
             try:
-                with (OUT.parent/'accelerator.lock').open('a') as lock:
-                    fcntl.flock(lock,fcntl.LOCK_EX)
-                    train_category(item['dataset'],item['category'],args.device)
+                with (OUT.parent / 'accelerator.lock').open('a+') as lock:
+                    if fcntl is not None:
+                        # Linux / macOS
+                        fcntl.flock(lock, fcntl.LOCK_EX)
+                    elif msvcrt is not None:
+                        # Windows
+                        lock.seek(0)
+                        if lock.tell() == 0:
+                            lock.write('\0')
+                            lock.flush()
+                        lock.seek(0)
+                        msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+
+                    try:
+                        train_category(item['dataset'], item['category'], args.device)
+                    finally:
+                        if msvcrt is not None and fcntl is None:
+                            lock.seek(0)
+                            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
             except Exception as error:
                 update(key,state='failed',error=str(error)); traceback.print_exc()
                 # Do not automatically rerun a failed trial forever.

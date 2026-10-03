@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Layers, Image as ImageIcon, Activity } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 
 interface Props {
   originalUrl?: string;
@@ -7,103 +10,104 @@ interface Props {
   className?: string;
 }
 
-type ViewMode = 'original' | 'heatmap' | 'overlay';
-
 export const AnomalyHeatmapViewer: React.FC<Props> = ({
   originalUrl,
   heatmapUrl,
   className = '',
 }) => {
-  const [mode, setMode] = useState<ViewMode>('overlay');
-  const [opacity, setOpacity] = useState(0.55);
+  const [mode, setMode] = useState<'original' | 'heatmap' | 'overlay'>('overlay');
+  const [opacity, setOpacity] = useState<number[]>([60]);
 
-  const modes: { id: ViewMode; icon: React.ElementType; label: string }[] = [
-    { id: 'original', icon: ImageIcon, label: 'Original' },
-    { id: 'heatmap', icon: Activity, label: 'Heatmap' },
-    { id: 'overlay', icon: Layers, label: 'Overlay' },
-  ];
-
-  const hasImages = originalUrl || heatmapUrl;
+  const hasImages = Boolean(originalUrl || heatmapUrl);
 
   return (
-    <div className={`card ${className}`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 className="text-sm font-semibold text-vqc-text">Anomaly Heatmap</h3>
+    <Card className={`border-border bg-card shadow-lg ${className}`}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+        <CardTitle className="text-sm font-semibold tracking-tight uppercase">
+          Anomaly Heatmap
+        </CardTitle>
+
         {hasImages && (
-          <div className="flex items-center gap-1 bg-vqc-panel rounded-lg p-1">
-            {modes.map(({ id, icon: Icon, label }) => (
-              <button
-                key={id}
-                onClick={() => setMode(id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === id
-                    ? 'bg-vqc-accent text-white'
-                    : 'text-vqc-muted hover:text-vqc-text'
-                }`}
-              >
-                <Icon className="w-3 h-3" />
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={mode}
+            onValueChange={(value: string) =>
+              setMode(value as 'original' | 'heatmap' | 'overlay')
+            }
+            className="w-auto"
+          >
+            <TabsList>
+              <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+              <TabsTrigger value="overlay">Overlay</TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
-      </div>
+      </CardHeader>
 
-      {/* Image display */}
-      <div className="relative rounded-lg overflow-hidden bg-vqc-panel aspect-video flex items-center justify-center">
-        {!hasImages ? (
-          <div className="text-vqc-muted text-sm">No image available</div>
-        ) : (
-          <div className="relative w-full h-full">
-            {/* Original */}
-            {originalUrl && (
-              <img
-                src={originalUrl}
-                alt="Original inspection image"
-                className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
-                  mode === 'original' || mode === 'overlay' ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            )}
+      <CardContent>
+        {/* Image display */}
+        <div className="relative rounded-lg overflow-hidden bg-muted aspect-video flex items-center justify-center">
+          {!hasImages ? (
+            <div className="text-muted-foreground text-sm">
+              No image available
+            </div>
+          ) : (
+            <div className="relative w-full h-full">
+              {/* Original inspection image */}
+              {originalUrl && (
+                <img
+                  src={originalUrl}
+                  alt="Original inspection image"
+                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+                    mode === 'original' || mode === 'overlay'
+                      ? 'opacity-100'
+                      : 'opacity-0'
+                  }`}
+                />
+              )}
 
-            {/* Heatmap overlay */}
-            {heatmapUrl && (
-              <img
-                src={heatmapUrl}
-                alt="Anomaly heatmap"
-                className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200`}
-                style={{
-                  opacity:
-                    mode === 'heatmap' ? 1 :
-                    mode === 'overlay' ? opacity :
-                    0,
-                  mixBlendMode: mode === 'overlay' ? 'screen' : 'normal',
-                }}
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Opacity slider - only for overlay mode */}
-      {mode === 'overlay' && heatmapUrl && originalUrl && (
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-vqc-muted text-xs w-20">Heatmap opacity</span>
-          <input
-            aria-label="Heatmap opacity"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={opacity}
-            onChange={(e) => setOpacity(Number(e.target.value))}
-            className="flex-1 accent-vqc-accent"
-          />
-          <span className="text-vqc-muted text-xs w-10 text-right">
-            {Math.round(opacity * 100)}%
-          </span>
+              {/* Anomaly heatmap */}
+              {heatmapUrl && (
+                <img
+                  src={heatmapUrl}
+                  alt="Anomaly heatmap"
+                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
+                  style={{
+                    opacity:
+                      mode === 'heatmap'
+                        ? 1
+                        : mode === 'overlay'
+                          ? opacity[0] / 100
+                          : 0,
+                    mixBlendMode: mode === 'overlay' ? 'screen' : 'normal',
+                  }}
+                />
+              )}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Heatmap opacity — only relevant in overlay mode */}
+        {mode === 'overlay' && heatmapUrl && originalUrl && (
+          <div className="mt-5 flex items-center gap-4 px-2">
+            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider w-32">
+              Heatmap Opacity
+            </span>
+
+            <Slider
+              value={opacity}
+              onValueChange={setOpacity}
+              max={100}
+              step={5}
+              className="flex-1"
+            />
+
+            <span className="text-muted-foreground text-xs font-medium w-10 text-right">
+              {opacity[0]}%
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };

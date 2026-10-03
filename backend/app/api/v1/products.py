@@ -1,5 +1,9 @@
-"""Products CRUD API endpoints."""
+import asyncio
+import io
 import uuid
+import zipfile
+from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,10 +24,96 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+@router.get('/resolve')
+async def resolve_product_by_code(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Resolve a product by barcode, QR payload, or SKU code.
+
+    Used for automatic product profile selection.
+    The scanned value is treated ONLY as an identifier to look up an existing
+    product — it is never executed or used to create a new product.
+
+    Returns:
+        200 with product data if found
+        404 with 'product_not_found' status if no match
+    """
+    # Try barcode field first, then product code
+    result = await db.execute(
+        select(Product).where(Product.barcode == code)
+    )
+    product = result.scalar_one_or_none()
+
+    if product is None:
+        # Fallback: try matching the product code (SKU)
+        result = await db.execute(
+            select(Product).where(Product.code == code)
+        )
+        product = result.scalar_one_or_none()
+
+    if product is None:
+        return {
+            "status": "product_not_found",
+            "scanned_value": code,
+            "message": "No product profile found for this code. Please select a product manually.",
+        }
+
+    return {
+        "status": "found",
+        "product": {
+            "id": str(product.id),
+            "name": product.name,
+            "code": product.code,
+            "barcode": product.barcode,
+            "threshold": product.threshold,
+            "model_status": product.model_status.value,
+            "reference_image_count": product.reference_image_count,
+        },
+    }
+
+
 @router.get('/trained-profiles')
 async def trained_profiles():
     from app.services.ml.catalog import public_profiles
     return public_profiles()
+
+
+@router.post('/{product_id}/learn-normal', status_code=status.HTTP_202_ACCEPTED)
+async def learn_normal(product_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Start the Learn Normal training workflow for a product.
+
+    Requires at least 20 GOOD reference images to have been uploaded first.
+    The endpoint returns immediately (HTTP 202); training continues in the background.
+    Poll GET /products/{id}/learn-normal/status or GET /products/{id} to track
+    model_status transitions:  not_available → training → ready / validation_required.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(404, 'Product not found.')
+    from app.services.ml.learn_normal import learn_normal_service
+    try:
+        return await learn_normal_service.start(product, db)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@router.get('/{product_id}/learn-normal/status')
+async def learn_normal_status(product_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Return the current training status for a product.
+
+    Clients should poll this endpoint (or GET /products/{id}) to track progress.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(404, 'Product not found.')
+    from app.services.ml.learn_normal import learn_normal_service, MIN_REFERENCE_IMAGES
+    return await learn_normal_service.get_status(product)
 
 
 @router.put('/{product_id}/model-profile', response_model=ProductResponse)
@@ -133,6 +223,96 @@ async def update_threshold(
     return product
 
 
+VALID_IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp')
+
+
+@router.post(
+    "/{product_id}/reference-images/zip",
+    response_model=List[ReferenceImageResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_reference_images_zip(
+    product_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Extract and add all valid images from a ZIP archive as product reference images.
+    Supports subdirectories, filters out system/hidden files, and commits all at once.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    zip_bytes = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except Exception as e:
+        logger.warning(f"Failed to open zip file for product {product_id}: {e}")
+        raise HTTPException(status_code=422, detail="Invalid or corrupted ZIP archive.")
+
+    with zf:
+        valid_names = [
+            name for name in zf.namelist()
+            if name.lower().endswith(VALID_IMAGE_EXTENSIONS)
+            and not name.startswith("__MACOSX")
+            and not Path(name).name.startswith(".")
+            and not name.endswith("/")
+        ]
+
+        if not valid_names:
+            raise HTTPException(
+                status_code=422,
+                detail="No valid image files (JPG, PNG, WEBP) found in the ZIP archive.",
+            )
+
+        valid_names.sort()
+
+        now = datetime.utcnow()
+        sem = asyncio.Semaphore(5)
+
+        async def process_image_entry(name: str):
+            async with sem:
+                try:
+                    img_data = zf.read(name)
+                    ext = Path(name).suffix.lower()
+                    mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
+                    original_bytes, _ = validate_and_preprocess(img_data, mime)
+                    storage_url = await storage_service.upload_reference_image(
+                        original_bytes, str(product_id)
+                    )
+                    return ProductReferenceImage(
+                        id=uuid.uuid4(),
+                        product_id=product.id,
+                        storage_url=storage_url,
+                        is_active=True,
+                        created_at=now,
+                    )
+                except Exception as e:
+                    logger.warning(f"Skipping invalid image '{name}' in zip: {e}")
+                    return None
+
+        tasks = [process_image_entry(name) for name in valid_names]
+        results = await asyncio.gather(*tasks)
+        uploaded_records = [r for r in results if r is not None]
+
+        for rec in uploaded_records:
+            db.add(rec)
+
+        if not uploaded_records:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not extract any valid images from the ZIP archive.",
+            )
+
+        product.reference_image_count = product.reference_image_count + len(uploaded_records)
+        await db.commit()
+
+        logger.info(f"Successfully uploaded {len(uploaded_records)} reference images from zip for product {product_id}")
+        return uploaded_records
+
+
 @router.post(
     "/{product_id}/reference-images",
     response_model=ReferenceImageResponse,
@@ -147,6 +327,15 @@ async def upload_reference_image(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
+
+    # Seamlessly support zip uploaded to single image endpoint
+    is_zip = (
+        (file.filename and file.filename.lower().endswith(".zip"))
+        or file.content_type in ("application/zip", "application/x-zip-compressed", "multipart/x-zip")
+    )
+    if is_zip:
+        records = await upload_reference_images_zip(product_id, file, db)
+        return records[0]
 
     # Validate content type
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):

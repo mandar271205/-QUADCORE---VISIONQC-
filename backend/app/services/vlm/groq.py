@@ -20,6 +20,31 @@ PROVIDER_NAME = "groq"  # internal only
 class GroqVisionEngine(BaseVLMEngine):
     """Groq vision model inspection engine."""
 
+    def __init__(self):
+        self._client = None
+        self._client_key = None
+
+    async def _get_client(self):
+        # Reuse the HTTP connection pool across inspections. Async requests are
+        # cancellable, so timed-out calls do not occupy a background thread.
+        key = (settings.GROQ_API_KEY, settings.ENGINE_TIMEOUT_SECONDS)
+        if self._client is None or self._client_key != key:
+            await self.close()
+            from groq import AsyncGroq
+            self._client = AsyncGroq(
+                api_key=settings.GROQ_API_KEY,
+                timeout=settings.ENGINE_TIMEOUT_SECONDS,
+                max_retries=0,
+            )
+            self._client_key = key
+        return self._client
+
+    async def close(self):
+        if self._client is not None:
+            client, self._client = self._client, None
+            self._client_key = None
+            await client.close()
+
     def is_available(self) -> bool:
         return bool(settings.GROQ_API_KEY)
 
@@ -33,11 +58,9 @@ class GroqVisionEngine(BaseVLMEngine):
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         try:
-            from groq import Groq
-            client = Groq(api_key=settings.GROQ_API_KEY)
-
-            def _call():
-                return client.chat.completions.create(
+            client = await self._get_client()
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
                     model=settings.GROQ_VLM_MODEL,
                     messages=[
                         {
@@ -45,9 +68,7 @@ class GroqVisionEngine(BaseVLMEngine):
                             "content": [
                                 {
                                     "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{image_b64}"
-                                    },
+                                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
                                 },
                                 {"type": "text", "text": prompt},
                             ],
@@ -56,16 +77,13 @@ class GroqVisionEngine(BaseVLMEngine):
                     response_format={"type": "json_object"},
                     temperature=0.1,
                     max_tokens=1024,
-                )
-
-            loop = asyncio.get_event_loop()
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, _call),
+                ),
                 timeout=settings.ENGINE_TIMEOUT_SECONDS,
             )
 
             latency_ms = int((time.time() - start) * 1000)
             raw_text = response.choices[0].message.content or "{}"
+            logger.info(f"[{PROVIDER_NAME}] raw response: {raw_text}")
             parsed = json.loads(raw_text)
             return _parse_vlm_response(parsed, PROVIDER_NAME, latency_ms, raw_text)
 

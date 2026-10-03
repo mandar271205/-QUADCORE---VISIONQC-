@@ -11,6 +11,7 @@ class ProductCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     threshold: float = Field(default=0.55, ge=0.0, le=1.0)
+    barcode: Optional[str] = Field(None, max_length=255)  # QR/barcode for auto-profile-select
 
 
 class ProductUpdate(BaseModel):
@@ -18,6 +19,7 @@ class ProductUpdate(BaseModel):
     code: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
     threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    barcode: Optional[str] = Field(None, max_length=255)
 
 
 class ProductResponse(UTCResponse):
@@ -30,6 +32,7 @@ class ProductResponse(UTCResponse):
     reference_image_count: int
     created_at: datetime
     updated_at: datetime
+    barcode: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

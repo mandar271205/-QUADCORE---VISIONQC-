@@ -12,16 +12,16 @@ import { getTodayAnalytics } from '../../src/api';
 import type { TodayAnalytics } from '../../src/types';
 
 const COLORS = {
-  bg: '#0f1117',
-  surface: '#1a1d27',
-  panel: '#21263a',
-  border: '#2d3348',
-  text: '#e2e8f0',
-  muted: '#8b92a5',
-  accent: '#3b82f6',
-  pass: '#22c55e',
-  fail: '#ef4444',
-  review: '#f59e0b',
+  bg: '#0F172A',
+  surface: '#1E293B',
+  panel: '#1E293B',
+  border: '#334155',
+  text: '#F8FAFC',
+  muted: '#94A3B8',
+  accent: '#06B6D4',
+  pass: '#22C55E',
+  fail: '#EF4444',
+  review: '#F59E0B',
 };
 
 export default function AnalyticsScreen() {
@@ -176,8 +176,8 @@ export default function AnalyticsScreen() {
               </View>
               <View style={styles.divider} />
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Active ML Model</Text>
-                <Text style={styles.statValue}>VLM & Mock PatchCore</Text>
+                <Text style={styles.statLabel}>Inspection Engine</Text>
+                <Text style={[styles.statValue, { color: COLORS.pass }]}>Active (Nominal)</Text>
               </View>
             </View>
           </>

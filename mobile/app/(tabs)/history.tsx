@@ -3,28 +3,28 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getInspections } from '../../src/api';
 import type { InspectionListItem, Decision } from '../../src/types';
 
 const COLORS = {
-  bg: '#0f1117',
-  surface: '#1a1d27',
-  panel: '#21263a',
-  border: '#2d3348',
-  text: '#e2e8f0',
-  muted: '#8b92a5',
-  pass: '#22c55e',
-  fail: '#ef4444',
-  review: '#f59e0b',
-  accent: '#3b82f6',
+  bg: '#0F172A',
+  surface: '#1E293B',
+  panel: '#1E293B',
+  border: '#334155',
+  text: '#F8FAFC',
+  muted: '#94A3B8',
+  pass: '#22C55E',
+  fail: '#EF4444',
+  review: '#F59E0B',
+  accent: '#06B6D4',
 };
 
 const decisionConfig: Record<Decision, { bg: string; text: string; border: string }> = {
@@ -187,31 +187,34 @@ export default function HistoryScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.inspection_id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={COLORS.accent}
-              colors={[COLORS.accent]}
-            />
-          }
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            hasMore && !refreshing && items.length > 0 ? (
-              <ActivityIndicator
-                size="small"
-                color={COLORS.muted}
-                style={{ paddingVertical: 16 }}
+        <View style={{ flex: 1 }}>
+          <FlashList
+            data={items}
+            keyExtractor={(item) => item.inspection_id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={COLORS.accent}
+                colors={[COLORS.accent]}
               />
-            ) : null
-          }
-        />
+            }
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              hasMore && !refreshing && items.length > 0 ? (
+                <ActivityIndicator
+                  size="small"
+                  color={COLORS.muted}
+                  style={{ paddingVertical: 16 }}
+                />
+              ) : null
+            }
+          />
+        </View>
       )}
     </SafeAreaView>
   );

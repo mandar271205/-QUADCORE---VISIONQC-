@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from app.core.config import settings
+from app.services.ml.member3_results import get_member3_benchmark_summary
 
 router = APIRouter()
 METRICS = ('accuracy', 'balanced_accuracy', 'f2', 'f1', 'precision', 'recall',
@@ -39,3 +40,15 @@ async def comparison_example(relative_path: str):
     if not target.is_relative_to(root) or 'examples' not in target.relative_to(root).parts or target.suffix != '.png' or not target.is_file():
         raise HTTPException(404, 'Example image not found.')
     return FileResponse(target, media_type='image/png')
+
+
+@router.get('/member3')
+async def member3_benchmark():
+    """
+    Return Member 3's pre-computed benchmark metrics.
+
+    These are READ-ONLY results from Member 3's offline training and evaluation.
+    Member 3 models are NOT used for live production inspection routing.
+    All scores are anomaly-detection AUROC / threshold values, not probabilities.
+    """
+    return get_member3_benchmark_summary()

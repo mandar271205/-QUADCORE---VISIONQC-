@@ -13,6 +13,10 @@ async def isolated_database(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, 'DEMO_MODE', True)
     monkeypatch.setattr(settings, 'ML_ENABLED', False)
     monkeypatch.setattr(settings, 'INSPECTION_MODE', 'vlm_primary')
+    # Tests must never depend on live Supabase Storage.
+    # Empty credentials intentionally exercise the local base64 fallback.
+    monkeypatch.setattr(settings, 'SUPABASE_URL', '')
+    monkeypatch.setattr(settings, 'SUPABASE_SERVICE_ROLE_KEY', '')
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as connection:
@@ -23,6 +27,8 @@ async def isolated_database(tmp_path, monkeypatch):
             yield session
 
     application.dependency_overrides[get_db] = test_db
+    monkeypatch.setattr('app.db.session.AsyncSessionLocal', session_factory)
+    monkeypatch.setattr('app.services.ml.learn_normal.AsyncSessionLocal', session_factory)
     yield
     application.dependency_overrides.pop(get_db, None)
     await engine.dispose()

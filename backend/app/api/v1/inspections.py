@@ -3,6 +3,8 @@ Inspections API endpoints.
 Handles image upload, inspection execution, history, and detail retrieval.
 IMPORTANT: Provider/engine details are NEVER returned in any public response.
 """
+import asyncio
+import json
 import uuid
 import time
 from datetime import datetime
@@ -10,11 +12,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.db.session import get_db
 from app.db.models import (
-    Inspection, Defect, InspectionRuntime, Product, Decision, ClientType, Severity
+    Inspection, Defect, InspectionRuntime, Product, Decision, ClientType, Severity,
+    OperationalSeverity, QualityCheckStatus, InspectionReview, ReviewStatus
 )
 from app.schemas.inspection import (
     InspectionResponse, InspectionListResponse, InspectionListItem,
@@ -30,6 +33,10 @@ from app.services.heatmap.generator import (
 )
 from app.services.heatmap.masks import validate_and_preprocess
 from app.services.storage.supabase import storage_service
+from app.services.image_quality_gate import image_quality_gate
+from app.services.severity import compute_severity
+from app.services.review_queue import maybe_enqueue_review
+from app.services.profile_versioning import get_active_profile_version
 from app.core.exceptions import (
     InvalidImageError, ImageTooLargeError, AllProvidersFailedError, visionqc_exception_to_http
 )
@@ -40,19 +47,96 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+def _prepare_heatmap(result, original_bytes: bytes):
+    """CPU image work runs in a worker thread, keeping other requests responsive."""
+    # Calibrate defects against visual evidence
+    from app.services.heatmap.generator import calibrate_defects
+    decision_val = result.decision.value if hasattr(result.decision, "value") else str(result.decision)
+    calibrated_defects = calibrate_defects(result.defects, original_bytes, decision=decision_val)
+
+    # Generate heatmap
+    heatmap_bytes = None
+    try:
+        if result.engine_type != "vlm" and result.anomaly_map is not None:
+            # ML or demo mode: use native anomaly map
+            import io, numpy as np
+            from PIL import Image
+            buf = io.BytesIO(result.anomaly_map)
+            arr = np.array(Image.open(buf)).astype(np.float32) / 255.0
+            heatmap_bytes, _ = generate_heatmap_from_anomaly_map(arr, original_bytes, include_overlay=False)
+            if result.roi_region:
+                from PIL import ImageDraw
+                annotated=Image.open(io.BytesIO(heatmap_bytes)).convert('RGB')
+                region=result.roi_region
+                w,h=annotated.size
+                box=(region['x']*w,region['y']*h,
+                     (region['x']+region['width'])*w-1,(region['y']+region['height'])*h-1)
+                ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
+                annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
+                heatmap_bytes=annotated_bytes.getvalue()
+        elif result.decision != Decision.PASS and calibrated_defects:
+            # VLM with regions
+            regions = [d["region"] for d in calibrated_defects if isinstance(d, dict) and d.get("region")]
+            heatmap_bytes, _ = generate_heatmap_from_regions(regions, original_bytes, include_overlay=False)
+        else:
+            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
+    except Exception as e:
+        logger.warning(f"Heatmap generation failed: {e}")
+        try:
+            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
+        except Exception:
+            pass
+
+    return calibrated_defects, heatmap_bytes
+
+
+async def _prepare_and_upload(result, original_bytes: bytes, inspection_id: str):
+    # Start storing the original while the heatmap is calculated; upload the
+    # heatmap as soon as it is ready. Failure of either upload preserves the other.
+    async def heatmap_upload():
+        defects, heatmap = await asyncio.to_thread(_prepare_heatmap, result, original_bytes)
+        url = None
+        if heatmap:
+            try:
+                url = await storage_service.upload_heatmap(heatmap, inspection_id)
+            except Exception as error:
+                logger.warning("Heatmap upload failed (non-fatal): %s", type(error).__name__)
+        return defects, url
+
+    original, prepared = await asyncio.gather(
+        storage_service.upload_original(original_bytes, inspection_id),
+        heatmap_upload(),
+        return_exceptions=True,
+    )
+    if isinstance(prepared, BaseException):
+        raise prepared
+    if isinstance(original, BaseException):
+        logger.warning("Original upload failed (non-fatal): %s", type(original).__name__)
+        original = None
+    defects, heatmap_url = prepared
+    return defects, original, heatmap_url
+
+
 @router.post("", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_inspection(
     image: UploadFile = File(...),
     product_id: Optional[str] = Form(None),
     client_type: str = Form("web"),
     inspection_mode: Optional[str] = Form(None),
+    batch_id: Optional[str] = Form(None),
+    shift: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Run a quality inspection on the uploaded image.
+    
+    Image Quality Gate runs first. If the image is clearly unusable (blurry,
+    dark, overexposed, etc.), a RETAKE outcome is returned immediately WITHOUT
+    running AI inspection. A RETAKE is NOT a product defect.
+    
     Mobile uses the configured mode when MOBILE_USE_ML is enabled; otherwise VLM-only.
     """
-    start_time = time.time()
+    start_time = time.perf_counter()
     inspection_id = uuid.uuid4()
 
     # Validate content type
@@ -64,30 +148,33 @@ async def create_inspection(
     except Exception:
         raise HTTPException(status_code=422, detail="Could not read uploaded image.")
 
-    # Preprocess
+    # Resolve product/profile before preprocessing so Member 1 receives a
+    # lossless PNG even in model-primary and parallel modes.
     effective_mode = resolve_inspection_mode(inspection_mode, client_type)
-    try:
-        ml_only = effective_mode == 'model_only'
-        original_bytes, inference_bytes = validate_and_preprocess(image_bytes, image.content_type,
-                                                                  lossless_inference=ml_only)
-    except (InvalidImageError, ImageTooLargeError) as e:
-        raise visionqc_exception_to_http(e)
-
-    # Load product context
     product = None
     product_context = ProductContext(threshold=0.55)
 
     if product_id:
         try:
             prod_uuid = uuid.UUID(product_id)
-            result = await db.execute(select(Product).where(Product.id == prod_uuid))
+            query = select(Product).where(Product.id == prod_uuid)
+            if effective_mode != 'model_only':
+                query = query.options(selectinload(Product.reference_images))
+            result = await db.execute(query)
             product = result.scalar_one_or_none()
             if product:
+                # Pre-populate reference_images so VLM reference path uses them
+                ref_urls = [
+                    ri.storage_url
+                    for ri in (product.reference_images if effective_mode != 'model_only' else [])
+                    if ri.is_active and ri.storage_url
+                ]
                 product_context = ProductContext(
                     product_id=str(product.id),
                     product_name=product.name,
                     product_description=product.description,
                     threshold=product.threshold,
+                    reference_images=ref_urls,
                 )
         except Exception:
             pass
@@ -95,16 +182,111 @@ async def create_inspection(
         if product is None:
             raise HTTPException(status_code=422, detail='Select an existing product for inspection.')
 
-    if not settings.DEMO_MODE and effective_mode == 'model_only':
+    selected_ml_engine = None
+    if product is not None and not settings.DEMO_MODE:
         from app.services.ml.registry import MLRegistry
-        if product is None or MLRegistry.get(str(product.id)) is None:
-            raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
+        selected_ml_engine = MLRegistry.get(str(product.id))
 
-    # Validate client_type
+    try:
+        ml_only = effective_mode == 'model_only'
+        member1_profile = bool(getattr(selected_ml_engine, 'is_member1', False))
+        preserve_member1_pixels = member1_profile and effective_mode in (
+            'model_primary', 'parallel_first_valid'
+        )
+        original_bytes, inference_bytes = await asyncio.to_thread(
+            validate_and_preprocess,
+            image_bytes,
+            image.content_type,
+            lossless_inference=ml_only or preserve_member1_pixels,
+        )
+    except (InvalidImageError, ImageTooLargeError) as e:
+        raise visionqc_exception_to_http(e)
+
+    # Validate client_type (needed before quality gate RETAKE path)
     try:
         ct = ClientType(client_type)
     except ValueError:
         ct = ClientType.web
+
+    # ── Image Quality Gate ───────────────────────────────────────────────────
+    # Runs BEFORE expensive AI inspection. Poor images get RETAKE, not FAIL.
+    quality_result = None
+    qc_status = QualityCheckStatus.not_run
+    if not settings.DEMO_MODE:
+        quality_result = image_quality_gate.check(original_bytes)
+        qc_status = QualityCheckStatus(quality_result.status) if quality_result.status in (
+            'good', 'uncertain', 'poor'
+        ) else QualityCheckStatus.not_run
+
+        if quality_result.status == 'poor':
+            # Do NOT run inspection. Return RETAKE outcome immediately.
+            logger.info(
+                f"[QualityGate] Poor image quality (score={quality_result.quality_score:.3f}, "
+                f"issues={quality_result.issues}) — returning RETAKE, no inspection run"
+            )
+            processing_time_ms = int((time.time() - start_time) * 1000)
+
+            # Persist as RETAKE inspection (NOT a product defect)
+            upload_url = None
+            try:
+                upload_url = await storage_service.upload_original(original_bytes, str(inspection_id))
+            except Exception:
+                pass
+
+            db_inspection = Inspection(
+                id=inspection_id,
+                product_id=product.id if product else None,
+                client_type=ct,
+                decision=Decision.RETAKE,
+                anomaly_score=0.0,
+                confidence=0.0,
+                threshold=product_context.threshold,
+                original_image_url=upload_url,
+                heatmap_url=None,
+                processing_time_ms=processing_time_ms,
+                operational_severity=OperationalSeverity.UNKNOWN,
+                quality_check_status=qc_status,
+                quality_score=quality_result.quality_score,
+                quality_issues=json.dumps(quality_result.issues) if quality_result.issues else None,
+                batch_id=batch_id,
+                shift=shift,
+            )
+            db.add(db_inspection)
+            await db.commit()
+
+            return InspectionResponse(
+                inspection_id=inspection_id,
+                product=ProductSummaryInInspection(id=product.id, name=product.name) if product else None,
+                decision=Decision.RETAKE,
+                anomaly_score=0.0,
+                confidence=0.0,
+                threshold=product_context.threshold,
+                heatmap_url=None,
+                original_image_url=upload_url,
+                defects=[],
+                summary=quality_result.message,
+                processing_time_ms=processing_time_ms,
+                created_at=db_inspection.created_at or datetime.utcnow(),
+                operational_severity=OperationalSeverity.UNKNOWN,
+                quality_check_status=qc_status,
+                quality_score=quality_result.quality_score,
+                quality_issues=quality_result.issues,
+                quality_message=quality_result.message,
+                batch_id=batch_id,
+                shift=shift,
+            )
+
+    if not settings.DEMO_MODE and effective_mode == 'model_only':
+        if product is None or selected_ml_engine is None:
+            raise HTTPException(status_code=422, detail='Select a product with a trained inspection profile. Attach a matching profile on its product page.')
+
+    # Get active profile version for auditability (non-blocking)
+    active_profile_version = None
+    if product is not None:
+        try:
+            active_profile_version = await get_active_profile_version(product.id, db)
+        except Exception:
+            pass
 
     # Run inspection
     runtime_started = datetime.utcnow()
@@ -114,6 +296,8 @@ async def create_inspection(
             product_context=product_context,
             mode_override=inspection_mode,
             client_type=ct.value,
+            # Pass model_status for inspection-while-training routing decision
+            model_status=product.model_status.value if product else None,
         )
     except (AllProvidersFailedError, Exception) as e:
         logger.error(f"Inspection failed for {inspection_id}: {type(e).__name__}: {e}")
@@ -123,55 +307,29 @@ async def create_inspection(
         )
 
     runtime_completed = datetime.utcnow()
-    processing_time_ms = int((time.time() - start_time) * 1000)
 
-    # Generate heatmap
-    heatmap_bytes = None
-    try:
-        if result.anomaly_map is not None:
-            # ML or demo mode: use native anomaly map
-            import io, numpy as np
-            from PIL import Image
-            buf = io.BytesIO(result.anomaly_map)
-            arr = np.array(Image.open(buf)).astype(np.float32) / 255.0
-            heatmap_bytes, _ = generate_heatmap_from_anomaly_map(arr, original_bytes)
-            if result.roi_region:
-                from PIL import ImageDraw
-                annotated=Image.open(io.BytesIO(heatmap_bytes)).convert('RGB')
-                region=result.roi_region
-                w,h=annotated.size
-                box=(region['x']*w,region['y']*h,
-                     (region['x']+region['width'])*w-1,(region['y']+region['height'])*h-1)
-                ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
-                annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
-                heatmap_bytes=annotated_bytes.getvalue()
-        elif result.defects and any(
-            d.get("region") for d in result.defects if isinstance(d, dict)
-        ):
-            # VLM with regions
-            regions = [d["region"] for d in result.defects if isinstance(d, dict) and d.get("region")]
-            heatmap_bytes, _ = generate_heatmap_from_regions(regions, original_bytes)
-        else:
-            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
-    except Exception as e:
-        logger.warning(f"Heatmap generation failed: {e}")
-        try:
-            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
-        except Exception:
-            pass
-
-    # Upload images to storage
-    original_url = None
-    heatmap_url = None
-    try:
-        original_url = await storage_service.upload_original(original_bytes, str(inspection_id))
-        if heatmap_bytes:
-            heatmap_url = await storage_service.upload_heatmap(heatmap_bytes, str(inspection_id))
-    except Exception as e:
-        logger.warning(f"Storage upload failed (non-fatal): {e}")
+    calibrated_defects, original_url, heatmap_url = await _prepare_and_upload(
+        result, original_bytes, str(inspection_id)
+    )
+    # Persist the duration through image processing and storage. The returned
+    # duration below also includes the database commit.
+    processing_time_ms = int((time.perf_counter() - start_time) * 1000)
 
     # Persist inspection
-    threshold_used = product_context.threshold
+    threshold_used = result.threshold if result.threshold is not None else product_context.threshold
+
+    # Compute operational severity from actual engine evidence
+    operational_severity = compute_severity(
+        decision=result.decision,
+        anomaly_score=result.anomaly_score,
+        threshold=threshold_used,
+        confidence=result.confidence,
+        defect_count=len(result.defects),
+    )
+
+    # Build conformity summary (supervisor-facing, no internal engine names)
+    conformity_summary = result.summary if result.summary else None
+
     db_inspection = Inspection(
         id=inspection_id,
         product_id=product.id if product else None,
@@ -183,12 +341,20 @@ async def create_inspection(
         original_image_url=original_url,
         heatmap_url=heatmap_url,
         processing_time_ms=processing_time_ms,
+        operational_severity=operational_severity,
+        quality_check_status=qc_status if quality_result else QualityCheckStatus.not_run,
+        quality_score=quality_result.quality_score if quality_result else None,
+        quality_issues=json.dumps(quality_result.issues) if (quality_result and quality_result.issues) else None,
+        conformity_summary=conformity_summary,
+        batch_id=batch_id,
+        shift=shift,
+        profile_version_id=active_profile_version.id if active_profile_version else None,
     )
     db.add(db_inspection)
 
     # Persist defects
     defect_responses = []
-    for d in result.defects:
+    for d in calibrated_defects:
         if not isinstance(d, dict):
             continue
         severity_str = d.get("severity", "medium")
@@ -230,15 +396,22 @@ async def create_inspection(
         inspection_id=inspection_id,
         engine_type=result.engine_type,
         provider=result.provider,
-        engine_name=result.provider,
+        engine_name=f"{result.provider} [{result.winning_reason}]"[:255] if result.winning_reason else result.provider,
         started_at=runtime_started,
         completed_at=runtime_completed,
         latency_ms=result.latency_ms,
         success=True,
+        error_message=json.dumps({"winning_reason": result.winning_reason, "parallel_provenance": result.parallel_provenance, "vlm_reference_path_used": result.vlm_reference_path_used, "model_status_at_inspection": result.model_status_at_inspection}) if (result.parallel_provenance or result.vlm_reference_path_used or result.winning_reason) else None,
     )
     db.add(db_runtime)
 
+    # ── Human Review Queue ──────────────────────────────────────────────────
+    # REVIEW decisions are enqueued; PASS/FAIL/RETAKE are NOT
+    review_record = await maybe_enqueue_review(inspection_id, result.decision, db)
+
     await db.commit()
+    processing_time_ms = int((time.perf_counter() - start_time) * 1000)
+    logger.info("Inspection %s completed in %dms", inspection_id, processing_time_ms)
 
     return InspectionResponse(
         inspection_id=inspection_id,
@@ -253,6 +426,15 @@ async def create_inspection(
         summary=result.summary,
         processing_time_ms=processing_time_ms,
         created_at=db_inspection.created_at or datetime.utcnow(),
+        operational_severity=operational_severity,
+        quality_check_status=qc_status if quality_result else QualityCheckStatus.not_run,
+        quality_score=quality_result.quality_score if quality_result else None,
+        quality_issues=quality_result.issues if quality_result else None,
+        quality_message=quality_result.message if quality_result else None,
+        conformity_summary=conformity_summary,
+        batch_id=batch_id,
+        shift=shift,
+        review_status=review_record.review_status if review_record else None,
     )
 
 
@@ -302,7 +484,10 @@ async def list_inspections(
     # Fetch page
     q = (
         select(Inspection)
-        .options(selectinload(Inspection.product))
+        .options(
+            selectinload(Inspection.product),
+            selectinload(Inspection.review),
+        )
         .order_by(Inspection.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -315,6 +500,7 @@ async def list_inspections(
 
     items = []
     for insp in inspections:
+        rev = insp.review
         items.append(InspectionListItem(
             inspection_id=insp.id,
             product=(
@@ -329,6 +515,12 @@ async def list_inspections(
             original_image_url=insp.original_image_url,
             processing_time_ms=insp.processing_time_ms,
             created_at=insp.created_at,
+            operational_severity=getattr(insp, 'operational_severity', OperationalSeverity.UNKNOWN),
+            quality_check_status=getattr(insp, 'quality_check_status', QualityCheckStatus.not_run),
+            batch_id=getattr(insp, 'batch_id', None),
+            shift=getattr(insp, 'shift', None),
+            review_status=rev.review_status if rev else None,
+            human_decision=rev.human_decision if rev else None,
         ))
 
     return InspectionListResponse(
@@ -344,7 +536,11 @@ async def list_inspections(
 async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Inspection)
-        .options(selectinload(Inspection.product), selectinload(Inspection.defects))
+        .options(
+            selectinload(Inspection.product),
+            selectinload(Inspection.defects),
+            selectinload(Inspection.review),
+        )
         .where(Inspection.id == inspection_id)
     )
     insp = result.scalar_one_or_none()
@@ -368,6 +564,16 @@ async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(ge
             region=region,
         ))
 
+    rev = insp.review
+    import json as _json
+    quality_issues_parsed = None
+    raw_qi = getattr(insp, 'quality_issues', None)
+    if raw_qi:
+        try:
+            quality_issues_parsed = _json.loads(raw_qi)
+        except Exception:
+            pass
+
     return InspectionResponse(
         inspection_id=insp.id,
         product=(
@@ -381,9 +587,18 @@ async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(ge
         heatmap_url=insp.heatmap_url,
         original_image_url=insp.original_image_url,
         defects=defect_responses,
-        summary="",
+        summary=getattr(insp, 'conformity_summary', '') or '',
         processing_time_ms=insp.processing_time_ms,
         created_at=insp.created_at,
+        operational_severity=getattr(insp, 'operational_severity', OperationalSeverity.UNKNOWN),
+        quality_check_status=getattr(insp, 'quality_check_status', QualityCheckStatus.not_run),
+        quality_score=getattr(insp, 'quality_score', None),
+        quality_issues=quality_issues_parsed,
+        conformity_summary=getattr(insp, 'conformity_summary', None),
+        batch_id=getattr(insp, 'batch_id', None),
+        shift=getattr(insp, 'shift', None),
+        review_status=rev.review_status if rev else None,
+        human_decision=rev.human_decision if rev else None,
     )
 
 
