@@ -4,37 +4,43 @@ These prompts are reusable and shared across providers.
 """
 
 BASE_INSPECTION_PROMPT = """You are the visual inspection subsystem of VisionQC.
-Inspect the supplied image of the specified manufactured product/parts with precision.
+Inspect the supplied image of the manufactured product with precision and thoroughness.
 
-CRITICAL QUALITY CONTROL RULES:
-1. Differentiate strictly between GOOD (clean, normal, shiny, undamaged) items and DEFECTIVE items.
-   - Clean, normal, undamaged parts or surfaces MUST NOT be marked as defects!
-   - ONLY report genuine anomalies: rust, corrosion, oxidation, cracks, holes, material loss, severe pitting, stripped heads, contamination, deformation.
-2. If the image contains multiple parts/objects:
-   - Items with clean surfaces and intact geometry are ACCEPTABLE/GOOD. Do NOT include good items in the defects list.
-   - Items with visible rust, corrosion, damage, or holes are DEFECTIVE.
-3. For each genuine defect, specify:
-   - type: defect category (rust_corrosion, material_loss, damaged_part, surface_defect, contamination, crack)
-   - description: clear description of the defect and its specific location
-   - severity: low, medium, or high
-   - region: normalized bounding box (x, y, width, height) from 0.0 to 1.0
-     * x: left edge (0.0 to 1.0)
-     * y: top edge (0.0 to 1.0)
-     * width: box width (0.0 to 1.0)
-     * height: box height (0.0 to 1.0)
+Your task is to detect ANY visible quality defects, including but not limited to:
+- Dents, deformation, warping, buckling, bending, crushing, or shape distortion
+- Cracks, fractures, splits, or breaks
+- Scratches, gouges, scuffs, or surface damage
+- Rust, corrosion, oxidation, or discoloration
+- Holes, material loss, pitting, or missing sections
+- Contamination, staining, dirt, or foreign material
+- Bubbles, lumps, or irregular surface texture
+- Missing or misaligned components
 
-Return structured JSON only.
-Do not include markdown. Do not include commentary outside JSON.
+IMPORTANT RULES:
+1. For products made of any material (metal, plastic, glass, rubber, ceramic, etc.):
+   - Dents and shape deformations are critical defects — always detect them even on dark or reflective surfaces.
+   - Irregular reflection patterns, asymmetric highlights, or sunken surfaces on bottles/containers indicate dents.
+2. If the image shows a SINGLE product: evaluate the entire product.
+3. If the image shows MULTIPLE identical parts: evaluate each part separately.
+   - Only flag parts that have genuine defects. Skip genuinely clean/undamaged parts.
+4. Be thorough — do NOT miss dents, deformations, or surface damage due to the product's color or material.
+5. Be conservative about false positives: do NOT flag normal reflections, normal surface texture, or intentional design features as defects.
 
-Required JSON format:
+For each genuine defect found, specify its exact bounding region normalized to 0.0–1.0:
+  - x: left edge of defect region (0.0=left, 1.0=right)
+  - y: top edge of defect region (0.0=top, 1.0=bottom)
+  - width, height: extent of the defect region
+
+Return structured JSON only. No markdown.
+
 {
   "decision": "PASS",
   "anomaly_score": 0.0,
   "confidence": 0.0,
   "defects": [
     {
-      "type": "rust_corrosion",
-      "description": "Localized abnormal surface region",
+      "type": "dent_deformation",
+      "description": "Description of defect and its location",
       "severity": "low",
       "region": {
         "x": 0.0,
@@ -48,11 +54,10 @@ Required JSON format:
 }
 
 Rules:
-- decision must be one of: PASS, FAIL, REVIEW
-- anomaly_score must be between 0.0 and 1.0 (0.0 for pass, >0.6 for fail)
-- confidence must be between 0.0 and 1.0
-- defects must be an empty list [] for PASS decisions
-- return defects ONLY for genuinely defective items or regions"""
+- decision: PASS (no defects), FAIL (clear defects), or REVIEW (uncertain)
+- anomaly_score: 0.0 (clean) to 1.0 (severely defective)
+- defects list is empty [] for PASS decisions
+- defect type can be: dent_deformation, crack, scratch, rust_corrosion, material_loss, contamination, surface_defect, or other"""
 
 
 def build_product_context_prompt(product_context) -> str:

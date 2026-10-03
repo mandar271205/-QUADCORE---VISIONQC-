@@ -213,8 +213,10 @@ def calibrate_defects(
 ) -> list[dict]:
     """
     Calibrate defect list against image computer-vision analysis.
-    Eliminates false-positive detections on good/clean items and aligns
-    bounding coordinates to genuine defective items.
+    Only remaps bounding boxes on MULTI-ITEM metallic/rusted images where CV
+    can detect individual defective parts. For single-item inspections or
+    non-metallic products (plastic bottles, glass, etc.), returns the VLM
+    defects directly to avoid discarding valid detections like dents.
     """
     if decision == "PASS" or not raw_defects:
         return []
@@ -239,7 +241,7 @@ def calibrate_defects(
         else:
             _, part_mask = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
 
-        # Defect signatures
+        # Defect signatures applicable to metallic parts (rust/corrosion/voids)
         rust1 = cv2.inRange(hsv, (4, 25, 20), (28, 255, 230))
         rust2 = cv2.inRange(hsv, (0, 35, 20), (4, 255, 230))
         dark_defect = cv2.inRange(gray, 0, 75)
@@ -247,7 +249,7 @@ def calibrate_defects(
         defect_pixels = cv2.bitwise_and(defect_pixels, part_mask)
 
         cnts, _ = cv2.findContours(part_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        defective_parts = []
+        parts = []
         for c in cnts:
             area = cv2.contourArea(c)
             if area > 800:
@@ -257,32 +259,37 @@ def calibrate_defects(
                 total_p = cv2.countNonZero(c_mask)
                 def_p = cv2.countNonZero(cv2.bitwise_and(defect_pixels, c_mask))
                 ratio = def_p / float(total_p) if total_p > 0 else 0
-                if ratio >= 0.12:
-                    defective_parts.append({
-                        "x": round(bx / orig_w, 3),
-                        "y": round(by / orig_h, 3),
-                        "width": round(bw / orig_w, 3),
-                        "height": round(bh / orig_h, 3),
-                        "ratio": ratio,
-                    })
+                parts.append({
+                    "x": round(bx / orig_w, 3),
+                    "y": round(by / orig_h, 3),
+                    "width": round(bw / orig_w, 3),
+                    "height": round(bh / orig_h, 3),
+                    "ratio": ratio,
+                })
 
-        # Sort defective parts by ratio descending (most severe first)
-        defective_parts.sort(key=lambda p: p["ratio"], reverse=True)
+        # Only do coordinate remapping when:
+        # 1. There are MULTIPLE distinct parts (multi-item inspection)
+        # 2. AND CV detects SOME parts as clearly defective (metallic rust/void signatures)
+        # 3. AND at least one part is genuinely clean (showing it's multi-part discrimination)
+        # For single-item products (bottle, PCB, etc.), trust VLM directly.
+        defective_parts = [p for p in parts if p["ratio"] >= 0.12]
+        clean_parts = [p for p in parts if p["ratio"] < 0.12]
 
-        if defective_parts:
-            # Map raw defects to the genuine defective parts
+        is_multi_item_with_metallic_defects = (
+            len(parts) >= 3         # at least 3 detected objects
+            and len(defective_parts) >= 1
+            and len(clean_parts) >= 1  # some are clean → genuine multi-item scenario
+            and len(defective_parts) < len(parts)  # not ALL defective
+        )
+
+        if is_multi_item_with_metallic_defects:
+            # Sort most severe first
+            defective_parts.sort(key=lambda p: p["ratio"], reverse=True)
             calibrated = []
             for i, d in enumerate(raw_defects):
                 if not isinstance(d, dict):
                     continue
-                # If there are more defects than defective parts, bind to parts cyclically or stop
-                if i < len(defective_parts):
-                    part_box = defective_parts[i]
-                elif len(defective_parts) > 0:
-                    part_box = defective_parts[0]
-                else:
-                    break
-
+                part_box = defective_parts[i] if i < len(defective_parts) else defective_parts[0]
                 calibrated.append({
                     "type": d.get("type", "surface_irregularity"),
                     "description": d.get("description", "Quality defect detected"),
@@ -296,10 +303,14 @@ def calibrate_defects(
                 })
             return calibrated
 
-    except Exception as e:
-        logger.warning(f"Defect calibration failed: {e}")
+        # For single items (bottles, plastic, glass) or non-metallic products:
+        # Trust VLM defect regions directly — they detect dents, scratches, etc.
+        return raw_defects
 
-    # Fallback: return raw defects if calibration encountered an unexpected error
+    except Exception as e:
+        logger.warning(f"Defect calibration failed (returning raw): {e}")
+
+    # Fallback: return raw defects
     return raw_defects
 
 
