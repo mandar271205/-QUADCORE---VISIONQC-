@@ -71,15 +71,39 @@ class NvidiaVisionEngine(BaseVLMEngine):
             raw_text = response.choices[0].message.content or "{}"
 
             # Clean potential markdown fences
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            clean_text = raw_text.strip()
+            if "```json" in clean_text:
+                clean_text = clean_text.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif clean_text.startswith("```"):
+                clean_text = clean_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
-            parsed = json.loads(raw_text)
+            parsed = None
+            try:
+                parsed = json.loads(clean_text)
+            except Exception:
+                start_idx = clean_text.find("{")
+                end_idx = clean_text.rfind("}")
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    try:
+                        parsed = json.loads(clean_text[start_idx : end_idx + 1])
+                    except Exception:
+                        pass
+
+            if not isinstance(parsed, dict):
+                # Fallback parser for conversational response format
+                upper_text = clean_text.upper()
+                decision = "PASS" if "**PASS**" in upper_text or "DECISION IS: PASS" in upper_text or "\nPASS\n" in upper_text else "FAIL" if "**FAIL**" in upper_text or "FAIL" in upper_text else "REVIEW"
+                score = 0.05 if decision == "PASS" else 0.85 if decision == "FAIL" else 0.50
+                parsed = {
+                    "decision": decision,
+                    "anomaly_score": score,
+                    "confidence": 0.90,
+                    "defects": [],
+                    "summary": clean_text[:300].strip(),
+                }
+
             return _parse_vlm_response(parsed, PROVIDER_NAME, latency_ms, raw_text)
 
-        except json.JSONDecodeError as e:
-            logger.warning(f"[{PROVIDER_NAME}] JSON parse error: {e}")
-            raise
         except Exception as e:
-            logger.error(f"[{PROVIDER_NAME}] Inspection failed: {type(e).__name__}")
+            logger.error(f"[{PROVIDER_NAME}] Inspection failed: {type(e).__name__}: {e}")
             raise

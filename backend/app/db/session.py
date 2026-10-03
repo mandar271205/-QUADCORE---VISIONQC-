@@ -18,8 +18,10 @@ else:
         db_url,
         echo=settings.APP_ENV == "development",
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=300,
+        pool_timeout=15,
         connect_args={
             "statement_cache_size": 0,
             "prepared_statement_cache_size": 0,
@@ -53,6 +55,7 @@ async def check_db_health() -> bool:
         async with AsyncSessionLocal() as session:
             from sqlalchemy import text
             await session.execute(text("SELECT 1"))
+            await session.close()
         return True
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
