@@ -83,6 +83,20 @@ export async function uploadReferenceImage(
   return data;
 }
 
+export async function uploadReferenceImagesZip(
+  productId: string,
+  file: File
+): Promise<ReferenceImage[]> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await apiClient.post<ReferenceImage[]>(
+    `/products/${productId}/reference-images/zip`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+}
+
 export async function getReferenceImages(productId: string): Promise<ReferenceImage[]> {
   const { data } = await apiClient.get<ReferenceImage[]>(
     `/products/${productId}/reference-images`

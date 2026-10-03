@@ -1,5 +1,8 @@
 """Products CRUD API endpoints."""
+import io
 import uuid
+import zipfile
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -169,6 +172,88 @@ async def update_threshold(
     return product
 
 
+VALID_IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp')
+
+
+@router.post(
+    "/{product_id}/reference-images/zip",
+    response_model=List[ReferenceImageResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_reference_images_zip(
+    product_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Extract and add all valid images from a ZIP archive as product reference images.
+    Supports subdirectories, filters out system/hidden files, and commits all at once.
+    """
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    zip_bytes = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except Exception as e:
+        logger.warning(f"Failed to open zip file for product {product_id}: {e}")
+        raise HTTPException(status_code=422, detail="Invalid or corrupted ZIP archive.")
+
+    with zf:
+        valid_names = [
+            name for name in zf.namelist()
+            if name.lower().endswith(VALID_IMAGE_EXTENSIONS)
+            and not name.startswith("__MACOSX")
+            and not Path(name).name.startswith(".")
+            and not name.endswith("/")
+        ]
+
+        if not valid_names:
+            raise HTTPException(
+                status_code=422,
+                detail="No valid image files (JPG, PNG, WEBP) found in the ZIP archive.",
+            )
+
+        valid_names.sort()
+
+        uploaded_records = []
+        for name in valid_names:
+            try:
+                img_data = zf.read(name)
+                ext = Path(name).suffix.lower()
+                mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
+                original_bytes, _ = validate_and_preprocess(img_data, mime)
+                storage_url = await storage_service.upload_reference_image(
+                    original_bytes, str(product_id)
+                )
+                ref_image = ProductReferenceImage(
+                    product_id=product.id,
+                    storage_url=storage_url,
+                    is_active=True,
+                )
+                db.add(ref_image)
+                uploaded_records.append(ref_image)
+            except Exception as e:
+                logger.warning(f"Skipping invalid image '{name}' in zip: {e}")
+                continue
+
+        if not uploaded_records:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not extract any valid images from the ZIP archive.",
+            )
+
+        product.reference_image_count = product.reference_image_count + len(uploaded_records)
+        await db.commit()
+        for rec in uploaded_records:
+            await db.refresh(rec)
+
+        logger.info(f"Successfully uploaded {len(uploaded_records)} reference images from zip for product {product_id}")
+        return uploaded_records
+
+
 @router.post(
     "/{product_id}/reference-images",
     response_model=ReferenceImageResponse,
@@ -183,6 +268,15 @@ async def upload_reference_image(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
+
+    # Seamlessly support zip uploaded to single image endpoint
+    is_zip = (
+        (file.filename and file.filename.lower().endswith(".zip"))
+        or file.content_type in ("application/zip", "application/x-zip-compressed", "multipart/x-zip")
+    )
+    if is_zip:
+        records = await upload_reference_images_zip(product_id, file, db)
+        return records[0]
 
     # Validate content type
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):

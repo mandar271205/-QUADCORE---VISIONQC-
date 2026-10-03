@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Upload, Trash2, SlidersHorizontal, Brain,
   CheckCircle, AlertTriangle, Loader, Camera, ScanLine,
-  Images, X, Plus,
+  Images, X, Plus, FileArchive,
 } from 'lucide-react';
 import Webcam from 'react-webcam';
 import {
-  getProduct, updateThreshold, uploadReferenceImage,
+  getProduct, updateThreshold, uploadReferenceImage, uploadReferenceImagesZip,
   getReferenceImages, deleteReferenceImage,
   startLearnNormal, getLearnNormalStatus,
 } from '../api/products';
@@ -131,6 +131,10 @@ export const ProductDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0); // tracks batch progress
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [training, setTraining] = useState(false);
   const [trainError, setTrainError] = useState('');
@@ -216,21 +220,61 @@ export const ProductDetailPage: React.FC = () => {
     }
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const processFiles = async (files: File[]) => {
     if (!id || files.length === 0) return;
+    setUploadError('');
     setUploading(true);
     setUploadCount(0);
     try {
-      for (let i = 0; i < files.length; i++) {
-        await uploadReferenceImage(id, files[i]);
+      const isZipFile = (f: File) =>
+        f.name.toLowerCase().endsWith('.zip') ||
+        f.type === 'application/zip' ||
+        f.type === 'application/x-zip-compressed';
+
+      const zipFiles = files.filter(isZipFile);
+      const regularImages = files.filter(f => !isZipFile(f));
+
+      for (let i = 0; i < zipFiles.length; i++) {
+        setUploadMessage(`Extracting & uploading ${zipFiles[i].name}…`);
+        await uploadReferenceImagesZip(id, zipFiles[i]);
+      }
+
+      for (let i = 0; i < regularImages.length; i++) {
+        setUploadMessage(`Uploading image ${i + 1} of ${regularImages.length}…`);
+        await uploadReferenceImage(id, regularImages[i]);
         setUploadCount(i + 1);
       }
       await load();
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setUploadError(detail || (error instanceof Error ? error.message : 'Upload failed.'));
     } finally {
       setUploading(false);
       setUploadCount(0);
-      e.target.value = '';
+      setUploadMessage('');
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    await processFiles(files);
+    e.target.value = '';
+  };
+
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    await processFiles(files);
+    e.target.value = '';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) {
+      await processFiles(files);
     }
   };
 
@@ -448,32 +492,65 @@ export const ProductDetailPage: React.FC = () => {
 
             {/* Upload/Camera actions */}
             {!isReady && (
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="btn-primary flex items-center gap-2 flex-1"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  {uploading
-                    ? `Uploading ${uploadCount}…`
-                    : 'Upload GOOD Images'}
-                </button>
-                <button
-                  onClick={() => { setWebcamMode(m => !m); setWebcamError(false); }}
-                  className={`btn-secondary flex items-center gap-2 ${webcamMode ? 'border-vqc-accent text-vqc-accent' : ''}`}
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  {webcamMode ? 'Close Camera' : 'Capture with Camera'}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleUpload}
-                />
+              <div className="space-y-2 mb-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="btn-primary flex items-center gap-2 flex-1 min-w-[150px]"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    {uploading && !uploadMessage.includes('ZIP')
+                      ? (uploadMessage || `Uploading ${uploadCount}…`)
+                      : 'Upload Images'}
+                  </button>
+                  <button
+                    id="upload-zip-btn"
+                    onClick={() => zipInputRef.current?.click()}
+                    disabled={uploading}
+                    className="btn-secondary flex items-center gap-2 hover:border-vqc-accent/50"
+                    title="Upload photos packaged in a .zip archive"
+                  >
+                    <FileArchive className="w-3.5 h-3.5 text-vqc-accent" />
+                    {uploading && uploadMessage.includes('ZIP')
+                      ? 'Extracting ZIP…'
+                      : 'Upload ZIP'}
+                  </button>
+                  <button
+                    onClick={() => { setWebcamMode(m => !m); setWebcamError(false); }}
+                    className={`btn-secondary flex items-center gap-2 ${webcamMode ? 'border-vqc-accent text-vqc-accent' : ''}`}
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    {webcamMode ? 'Close Camera' : 'Capture with Camera'}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,.zip,application/zip,application/x-zip-compressed"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                  <input
+                    ref={zipInputRef}
+                    type="file"
+                    accept=".zip,application/zip,application/x-zip-compressed"
+                    className="hidden"
+                    onChange={handleZipUpload}
+                  />
+                </div>
+                {uploading && (
+                  <div className="flex items-center gap-2 text-xs text-vqc-accent bg-vqc-accent/10 border border-vqc-accent/20 px-3 py-2 rounded-lg">
+                    <Loader className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    <span>{uploadMessage || 'Processing upload…'}</span>
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -521,48 +598,65 @@ export const ProductDetailPage: React.FC = () => {
             {/* Gallery or empty state */}
             {images.length === 0 ? (
               <div
-                className="border-2 border-dashed border-vqc-border rounded-xl p-10 text-center cursor-pointer hover:border-vqc-accent/50 transition-colors"
+                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+                  isDragging
+                    ? 'border-vqc-accent bg-vqc-accent/10'
+                    : 'border-vqc-border hover:border-vqc-accent/50'
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="w-10 h-10 mx-auto mb-3 text-vqc-muted opacity-30" />
-                <p className="text-vqc-text font-medium">Upload GOOD Reference Images</p>
+                <div className="flex justify-center items-center gap-3 mb-3 text-vqc-muted opacity-40">
+                  <Upload className="w-9 h-9" />
+                  <FileArchive className="w-9 h-9 text-vqc-accent" />
+                </div>
+                <p className="text-vqc-text font-medium">Upload GOOD Reference Images or ZIP Archive</p>
                 <p className="text-vqc-muted text-sm mt-1">
-                  Drag photos here or click to select — you need at least {MIN_IMAGES}
+                  Drag photos or a .zip archive here, or click to browse — you need at least {MIN_IMAGES}
                 </p>
-                <p className="text-vqc-muted text-xs mt-1">JPG, PNG, WEBP · Multiple selection supported</p>
+                <p className="text-vqc-muted text-xs mt-1">JPG, PNG, WEBP, or ZIP · Multiple selection supported</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                {/* Add more tile */}
-                {!isReady && (
-                  <div
-                    className="aspect-square rounded-lg overflow-hidden bg-vqc-panel border-2 border-dashed border-vqc-border flex flex-col items-center justify-center cursor-pointer hover:border-vqc-accent/50 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Plus className="w-5 h-5 text-vqc-muted" />
-                    <span className="text-vqc-muted text-xs mt-1">Add</span>
-                  </div>
-                )}
-                {images.map(img => (
-                  <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden bg-vqc-panel border border-vqc-border/50">
-                    <img
-                      src={img.storage_url}
-                      alt="GOOD reference"
-                      className="w-full h-full object-cover"
-                    />
-                    {!isReady && (
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          onClick={() => handleDeleteImage(img.id)}
-                          className="w-8 h-8 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
-                          title="Remove reference image"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-white" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div
+                className={`transition-colors rounded-xl ${isDragging ? 'ring-2 ring-vqc-accent bg-vqc-accent/5 p-2' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+              >
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  {/* Add more tile */}
+                  {!isReady && (
+                    <div
+                      className="aspect-square rounded-lg overflow-hidden bg-vqc-panel border-2 border-dashed border-vqc-border flex flex-col items-center justify-center cursor-pointer hover:border-vqc-accent/50 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus className="w-5 h-5 text-vqc-muted" />
+                      <span className="text-vqc-muted text-xs mt-1">Add</span>
+                    </div>
+                  )}
+                  {images.map(img => (
+                    <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden bg-vqc-panel border border-vqc-border/50">
+                      <img
+                        src={img.storage_url}
+                        alt="GOOD reference"
+                        className="w-full h-full object-cover"
+                      />
+                      {!isReady && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            onClick={() => handleDeleteImage(img.id)}
+                            className="w-8 h-8 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
+                            title="Remove reference image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
