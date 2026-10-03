@@ -78,7 +78,10 @@ export async function uploadReferenceImage(
   const { data } = await apiClient.post<ReferenceImage>(
     `/products/${productId}/reference-images`,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    }
   );
   return data;
 }
@@ -92,7 +95,10 @@ export async function uploadReferenceImagesZip(
   const { data } = await apiClient.post<ReferenceImage[]>(
     `/products/${productId}/reference-images/zip`,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+    }
   );
   return data;
 }

@@ -1,7 +1,8 @@
-"""Products CRUD API endpoints."""
+import asyncio
 import io
 import uuid
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
@@ -218,26 +219,36 @@ async def upload_reference_images_zip(
 
         valid_names.sort()
 
-        uploaded_records = []
-        for name in valid_names:
-            try:
-                img_data = zf.read(name)
-                ext = Path(name).suffix.lower()
-                mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
-                original_bytes, _ = validate_and_preprocess(img_data, mime)
-                storage_url = await storage_service.upload_reference_image(
-                    original_bytes, str(product_id)
-                )
-                ref_image = ProductReferenceImage(
-                    product_id=product.id,
-                    storage_url=storage_url,
-                    is_active=True,
-                )
-                db.add(ref_image)
-                uploaded_records.append(ref_image)
-            except Exception as e:
-                logger.warning(f"Skipping invalid image '{name}' in zip: {e}")
-                continue
+        now = datetime.utcnow()
+        sem = asyncio.Semaphore(5)
+
+        async def process_image_entry(name: str):
+            async with sem:
+                try:
+                    img_data = zf.read(name)
+                    ext = Path(name).suffix.lower()
+                    mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
+                    original_bytes, _ = validate_and_preprocess(img_data, mime)
+                    storage_url = await storage_service.upload_reference_image(
+                        original_bytes, str(product_id)
+                    )
+                    return ProductReferenceImage(
+                        id=uuid.uuid4(),
+                        product_id=product.id,
+                        storage_url=storage_url,
+                        is_active=True,
+                        created_at=now,
+                    )
+                except Exception as e:
+                    logger.warning(f"Skipping invalid image '{name}' in zip: {e}")
+                    return None
+
+        tasks = [process_image_entry(name) for name in valid_names]
+        results = await asyncio.gather(*tasks)
+        uploaded_records = [r for r in results if r is not None]
+
+        for rec in uploaded_records:
+            db.add(rec)
 
         if not uploaded_records:
             raise HTTPException(
@@ -247,8 +258,6 @@ async def upload_reference_images_zip(
 
         product.reference_image_count = product.reference_image_count + len(uploaded_records)
         await db.commit()
-        for rec in uploaded_records:
-            await db.refresh(rec)
 
         logger.info(f"Successfully uploaded {len(uploaded_records)} reference images from zip for product {product_id}")
         return uploaded_records

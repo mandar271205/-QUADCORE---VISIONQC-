@@ -244,7 +244,6 @@ export const ProductDetailPage: React.FC = () => {
         await uploadReferenceImage(id, regularImages[i]);
         setUploadCount(i + 1);
       }
-      await load();
     } catch (error: unknown) {
       const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setUploadError(detail || (error instanceof Error ? error.message : 'Upload failed.'));
@@ -252,6 +251,11 @@ export const ProductDetailPage: React.FC = () => {
       setUploading(false);
       setUploadCount(0);
       setUploadMessage('');
+      try {
+        await load();
+      } catch {
+        // ignore load error
+      }
     }
   };
 
