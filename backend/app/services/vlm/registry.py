@@ -28,6 +28,14 @@ class VLMRegistry:
         return available
 
     @classmethod
+    async def close(cls) -> None:
+        for engine in cls._engines or []:
+            close = getattr(engine, "close", None)
+            if close is not None:
+                await close()
+        cls._engines = None
+
+    @classmethod
     def reset(cls) -> None:
         """Force re-initialization (useful for testing)."""
         cls._engines = None

@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
-import { DashboardPage } from './pages/DashboardPage';
-import { InspectionPage } from './pages/InspectionPage';
-import { ProductsPage } from './pages/ProductsPage';
-import { ProductDetailPage } from './pages/ProductDetailPage';
-import { HistoryPage } from './pages/HistoryPage';
-import { InspectionDetailPage } from './pages/InspectionDetailPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ComparisonPage } from './pages/ComparisonPage';
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const InspectionPage = lazy(() => import('./pages/InspectionPage').then(module => ({ default: module.InspectionPage })));
+const ProductsPage = lazy(() => import('./pages/ProductsPage').then(module => ({ default: module.ProductsPage })));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then(module => ({ default: module.ProductDetailPage })));
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then(module => ({ default: module.HistoryPage })));
+const InspectionDetailPage = lazy(() => import('./pages/InspectionDetailPage').then(module => ({ default: module.InspectionDetailPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(module => ({ default: module.AnalyticsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
+const ComparisonPage = lazy(() => import('./pages/ComparisonPage').then(module => ({ default: module.ComparisonPage })));
 
 const App: React.FC = () => {
   return (

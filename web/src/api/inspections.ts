@@ -1,3 +1,4 @@
+import { readShared } from './reads';
 import apiClient from './client';
 import type { InspectionResponse, InspectionListResponse } from '../types';
 
@@ -26,13 +27,17 @@ export async function getInspections(params?: {
   date_from?: string;
   date_to?: string;
 }): Promise<InspectionListResponse> {
-  const { data } = await apiClient.get<InspectionListResponse>('/inspections', { params });
-  return data;
+  return readShared('/inspections' + JSON.stringify(params || {}), async () => {
+    const { data } = await apiClient.get<InspectionListResponse>('/inspections', { params });
+    return data;
+  });
 }
 
 export async function getInspection(id: string): Promise<InspectionResponse> {
-  const { data } = await apiClient.get<InspectionResponse>(`/inspections/${id}`);
-  return data;
+  return readShared(`/inspections/${id}`, async () => {
+    const { data } = await apiClient.get<InspectionResponse>(`/inspections/${id}`);
+    return data;
+  });
 }
 
 export async function deleteInspection(id: string): Promise<void> {

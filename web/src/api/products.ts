@@ -1,3 +1,4 @@
+import { readShared } from './reads';
 import apiClient from './client';
 import type { Product, ProductCreate, ProductUpdate, ReferenceImage } from '../types';
 
@@ -21,8 +22,10 @@ export interface LearnNormalStatus {
 }
 
 export async function getTrainedProfiles(): Promise<TrainedProfile[]> {
-  const { data } = await apiClient.get<TrainedProfile[]>('/products/trained-profiles');
-  return data;
+  return readShared('/products/trained-profiles', async () => {
+    const { data } = await apiClient.get<TrainedProfile[]>('/products/trained-profiles');
+    return data;
+  });
 }
 
 export async function assignModelProfile(id: string, profileId: string): Promise<Product> {
@@ -36,13 +39,17 @@ export async function startLearnNormal(productId: string): Promise<LearnNormalSt
 }
 
 export async function getLearnNormalStatus(productId: string): Promise<LearnNormalStatus> {
-  const { data } = await apiClient.get<LearnNormalStatus>(`/products/${productId}/learn-normal/status`);
-  return data;
+  return readShared(`/products/${productId}/learn-normal/status`, async () => {
+    const { data } = await apiClient.get<LearnNormalStatus>(`/products/${productId}/learn-normal/status`);
+    return data;
+  });
 }
 
 export async function getProducts(): Promise<Product[]> {
-  const { data } = await apiClient.get<Product[]>('/products');
-  return data;
+  return readShared('/products', async () => {
+    const { data } = await apiClient.get<Product[]>('/products');
+    return data;
+  }, 5000);
 }
 
 export async function createProduct(body: ProductCreate): Promise<Product> {
@@ -51,8 +58,10 @@ export async function createProduct(body: ProductCreate): Promise<Product> {
 }
 
 export async function getProduct(id: string): Promise<Product> {
-  const { data } = await apiClient.get<Product>(`/products/${id}`);
-  return data;
+  return readShared(`/products/${id}`, async () => {
+    const { data } = await apiClient.get<Product>(`/products/${id}`);
+    return data;
+  });
 }
 
 export async function updateProduct(id: string, body: ProductUpdate): Promise<Product> {
@@ -104,10 +113,12 @@ export async function uploadReferenceImagesZip(
 }
 
 export async function getReferenceImages(productId: string): Promise<ReferenceImage[]> {
-  const { data } = await apiClient.get<ReferenceImage[]>(
+  return readShared(`/products/${productId}/reference-images`, async () => {
+    const { data } = await apiClient.get<ReferenceImage[]>(
     `/products/${productId}/reference-images`
   );
-  return data;
+    return data;
+  });
 }
 
 export async function deleteReferenceImage(

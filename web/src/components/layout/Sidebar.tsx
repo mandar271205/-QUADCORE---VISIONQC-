@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import apiClient from '../../api/client';
+import { getProducts } from '../../api/products';
 import {
   LayoutDashboard,
   ScanLine,
@@ -11,6 +12,11 @@ import {
   Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+function prepareInspection() {
+  void import('../../pages/InspectionPage').catch(() => {});
+  void getProducts().catch(() => {});
+}
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -54,6 +60,8 @@ export const Sidebar: React.FC = () => {
             key={to}
             to={to}
             end={to === '/'}
+            onPointerEnter={to === '/inspect' ? prepareInspection : undefined}
+            onFocus={to === '/inspect' ? prepareInspection : undefined}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group",

@@ -17,6 +17,7 @@ def generate_heatmap_from_anomaly_map(
     anomaly_map: np.ndarray,
     original_image_bytes: bytes,
     alpha: float = 0.5,
+    include_overlay: bool = True,
 ) -> tuple[bytes, bytes]:
     """
     Generate heatmap PNG and overlay from a native ML anomaly map.
@@ -51,6 +52,9 @@ def generate_heatmap_from_anomaly_map(
     # Generate raw heatmap PNG
     heatmap_bytes = _pil_to_bytes(heatmap_pil)
 
+    if not include_overlay:
+        return heatmap_bytes, b""
+
     # Generate overlay
     orig_np = np.array(original_pil)
     blend_alpha = (heatmap_resized.astype(np.float32) / 255.0 * alpha)[:, :, np.newaxis]
@@ -66,6 +70,7 @@ def generate_heatmap_from_regions(
     original_image_bytes: bytes,
     alpha: float = 0.65,
     gaussian_sigma: float = 0.08,
+    include_overlay: bool = True,
 ) -> tuple[bytes, bytes]:
     """
     Generate rich anomaly heatmap from VLM bounding regions combined with
@@ -187,6 +192,9 @@ def generate_heatmap_from_regions(
     heatmap_rgb = cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
     heatmap_pil = Image.fromarray(heatmap_rgb)
     heatmap_bytes = _pil_to_bytes(heatmap_pil)
+
+    if not include_overlay:
+        return heatmap_bytes, b""
 
     # Generate overlay
     orig_np = np.array(original_pil)
@@ -312,6 +320,6 @@ def generate_empty_heatmap(original_image_bytes: bytes) -> tuple[bytes, bytes]:
 
 def _pil_to_bytes(img: Image.Image, format: str = "PNG") -> bytes:
     buf = io.BytesIO()
-    img.save(buf, format=format)
+    img.save(buf, format=format, **({"compress_level": 1} if format == "PNG" else {}))
     buf.seek(0)
     return buf.read()

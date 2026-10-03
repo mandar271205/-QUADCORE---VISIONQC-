@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ScanLine, XCircle, CheckCircle, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
 import { getTodayAnalytics } from '../api/analytics';
 import { getInspections } from '../api/inspections';
@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 const COLORS = { PASS: '#22c55e', FAIL: '#ef4444', REVIEW: '#f59e0b' };
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<TodayAnalytics | null>(null);
   const [recent, setRecent] = useState<InspectionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +205,7 @@ export const DashboardPage: React.FC = () => {
                   <TableRow
                     key={insp.inspection_id}
                     className="border-border/50 hover:bg-secondary/40 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/history/${insp.inspection_id}`}
+                    onClick={() => navigate(`/history/${insp.inspection_id}`)}
                   >
                     <TableCell className="text-muted-foreground font-mono text-xs">
                       {new Date(insp.created_at).toLocaleTimeString()}

@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter
 from app.db.session import check_db_health
 from app.services.storage.supabase import check_storage_health
@@ -16,8 +17,10 @@ async def system_status():
     Generic system status endpoint.
     Never exposes provider names, API keys, or internal engine details.
     """
-    db_ok = await check_db_health()
-    storage_ok = not storage_service.is_available() or await check_storage_health()
+    async def storage_health():
+        return not storage_service.is_available() or await check_storage_health()
+
+    db_ok, storage_ok = await asyncio.gather(check_db_health(), storage_health())
     from app.services.ml.registry import MLRegistry
     from app.services.vlm.registry import VLMRegistry
     profile_paths = set(Path(settings.ML_MODEL_ROOT).glob('*.json'))

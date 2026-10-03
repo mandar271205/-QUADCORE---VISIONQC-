@@ -2,6 +2,8 @@
 Supabase Storage service.
 Handles file uploads for originals, heatmaps, and reference images.
 """
+import asyncio
+import threading
 import uuid
 from datetime import datetime
 from app.core.config import settings
@@ -18,14 +20,16 @@ class SupabaseStorageService:
 
     def __init__(self):
         self._client = None
+        self._client_lock = threading.Lock()
 
     def _get_client(self):
-        if self._client is None:
-            from supabase import create_client
-            self._client = create_client(
-                settings.SUPABASE_URL,
-                settings.SUPABASE_SERVICE_ROLE_KEY,
-            )
+        with self._client_lock:
+            if self._client is None:
+                from supabase import create_client
+                self._client = create_client(
+                    settings.SUPABASE_URL,
+                    settings.SUPABASE_SERVICE_ROLE_KEY,
+                )
         return self._client
 
     def is_available(self) -> bool:
@@ -80,7 +84,7 @@ class SupabaseStorageService:
 
         try:
             import asyncio
-            client = self._get_client()
+            client = await asyncio.to_thread(self._get_client)
             bucket = settings.SUPABASE_STORAGE_BUCKET
 
             def _do_upload():
@@ -111,7 +115,7 @@ class SupabaseStorageService:
             return True
         try:
             import asyncio
-            client = self._get_client()
+            client = await asyncio.to_thread(self._get_client)
             bucket = settings.SUPABASE_STORAGE_BUCKET
 
             def _do_delete():
@@ -128,14 +132,12 @@ class SupabaseStorageService:
 async def check_storage_health() -> bool:
     """Check if Supabase Storage is reachable."""
     try:
-        from supabase import create_client
         if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
             return False
-        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
         # List buckets as a health check
         import asyncio
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: client.storage.list_buckets())
+        await loop.run_in_executor(None, lambda: storage_service._get_client().storage.list_buckets())
         return True
     except Exception as e:
         logger.error(f"[Storage] Health check failed: {e}")

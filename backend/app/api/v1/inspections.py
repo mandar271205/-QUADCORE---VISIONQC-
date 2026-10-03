@@ -3,6 +3,7 @@ Inspections API endpoints.
 Handles image upload, inspection execution, history, and detail retrieval.
 IMPORTANT: Provider/engine details are NEVER returned in any public response.
 """
+import asyncio
 import json
 import uuid
 import time
@@ -11,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.db.session import get_db
 from app.db.models import (
@@ -41,6 +42,76 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+def _prepare_heatmap(result, original_bytes: bytes):
+    """CPU image work runs in a worker thread, keeping other requests responsive."""
+    # Calibrate defects against visual evidence
+    from app.services.heatmap.generator import calibrate_defects
+    decision_val = result.decision.value if hasattr(result.decision, "value") else str(result.decision)
+    calibrated_defects = calibrate_defects(result.defects, original_bytes, decision=decision_val)
+
+    # Generate heatmap
+    heatmap_bytes = None
+    try:
+        if result.engine_type != "vlm" and result.anomaly_map is not None:
+            # ML or demo mode: use native anomaly map
+            import io, numpy as np
+            from PIL import Image
+            buf = io.BytesIO(result.anomaly_map)
+            arr = np.array(Image.open(buf)).astype(np.float32) / 255.0
+            heatmap_bytes, _ = generate_heatmap_from_anomaly_map(arr, original_bytes, include_overlay=False)
+            if result.roi_region:
+                from PIL import ImageDraw
+                annotated=Image.open(io.BytesIO(heatmap_bytes)).convert('RGB')
+                region=result.roi_region
+                w,h=annotated.size
+                box=(region['x']*w,region['y']*h,
+                     (region['x']+region['width'])*w-1,(region['y']+region['height'])*h-1)
+                ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
+                annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
+                heatmap_bytes=annotated_bytes.getvalue()
+        elif result.decision != Decision.PASS and calibrated_defects:
+            # VLM with regions
+            regions = [d["region"] for d in calibrated_defects if isinstance(d, dict) and d.get("region")]
+            heatmap_bytes, _ = generate_heatmap_from_regions(regions, original_bytes, include_overlay=False)
+        else:
+            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
+    except Exception as e:
+        logger.warning(f"Heatmap generation failed: {e}")
+        try:
+            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
+        except Exception:
+            pass
+
+    return calibrated_defects, heatmap_bytes
+
+
+async def _prepare_and_upload(result, original_bytes: bytes, inspection_id: str):
+    # Start storing the original while the heatmap is calculated; upload the
+    # heatmap as soon as it is ready. Failure of either upload preserves the other.
+    async def heatmap_upload():
+        defects, heatmap = await asyncio.to_thread(_prepare_heatmap, result, original_bytes)
+        url = None
+        if heatmap:
+            try:
+                url = await storage_service.upload_heatmap(heatmap, inspection_id)
+            except Exception as error:
+                logger.warning("Heatmap upload failed (non-fatal): %s", type(error).__name__)
+        return defects, url
+
+    original, prepared = await asyncio.gather(
+        storage_service.upload_original(original_bytes, inspection_id),
+        heatmap_upload(),
+        return_exceptions=True,
+    )
+    if isinstance(prepared, BaseException):
+        raise prepared
+    if isinstance(original, BaseException):
+        logger.warning("Original upload failed (non-fatal): %s", type(original).__name__)
+        original = None
+    defects, heatmap_url = prepared
+    return defects, original, heatmap_url
+
+
 @router.post("", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_inspection(
     image: UploadFile = File(...),
@@ -53,7 +124,7 @@ async def create_inspection(
     Run a quality inspection on the uploaded image.
     Mobile uses the configured mode when MOBILE_USE_ML is enabled; otherwise VLM-only.
     """
-    start_time = time.time()
+    start_time = time.perf_counter()
     inspection_id = uuid.uuid4()
 
     # Validate content type
@@ -74,18 +145,16 @@ async def create_inspection(
     if product_id:
         try:
             prod_uuid = uuid.UUID(product_id)
-            from sqlalchemy.orm import selectinload as _sil
-            result = await db.execute(
-                select(Product)
-                .options(_sil(Product.reference_images))
-                .where(Product.id == prod_uuid)
-            )
+            query = select(Product).where(Product.id == prod_uuid)
+            if effective_mode != 'model_only':
+                query = query.options(selectinload(Product.reference_images))
+            result = await db.execute(query)
             product = result.scalar_one_or_none()
             if product:
                 # Pre-populate reference_images so VLM reference path uses them
                 ref_urls = [
                     ri.storage_url
-                    for ri in (product.reference_images or [])
+                    for ri in (product.reference_images if effective_mode != 'model_only' else [])
                     if ri.is_active and ri.storage_url
                 ]
                 product_context = ProductContext(
@@ -112,7 +181,8 @@ async def create_inspection(
         preserve_member1_pixels = member1_profile and effective_mode in (
             'model_primary', 'parallel_first_valid'
         )
-        original_bytes, inference_bytes = validate_and_preprocess(
+        original_bytes, inference_bytes = await asyncio.to_thread(
+            validate_and_preprocess,
             image_bytes,
             image.content_type,
             lossless_inference=ml_only or preserve_member1_pixels,
@@ -149,55 +219,13 @@ async def create_inspection(
         )
 
     runtime_completed = datetime.utcnow()
-    processing_time_ms = int((time.time() - start_time) * 1000)
 
-    # Calibrate defects against visual evidence
-    from app.services.heatmap.generator import calibrate_defects
-    decision_val = result.decision.value if hasattr(result.decision, "value") else str(result.decision)
-    calibrated_defects = calibrate_defects(result.defects, original_bytes, decision=decision_val)
-
-    # Generate heatmap
-    heatmap_bytes = None
-    try:
-        if result.engine_type != "vlm" and result.anomaly_map is not None:
-            # ML or demo mode: use native anomaly map
-            import io, numpy as np
-            from PIL import Image
-            buf = io.BytesIO(result.anomaly_map)
-            arr = np.array(Image.open(buf)).astype(np.float32) / 255.0
-            heatmap_bytes, _ = generate_heatmap_from_anomaly_map(arr, original_bytes)
-            if result.roi_region:
-                from PIL import ImageDraw
-                annotated=Image.open(io.BytesIO(heatmap_bytes)).convert('RGB')
-                region=result.roi_region
-                w,h=annotated.size
-                box=(region['x']*w,region['y']*h,
-                     (region['x']+region['width'])*w-1,(region['y']+region['height'])*h-1)
-                ImageDraw.Draw(annotated).rectangle(box,outline=(0,255,0),width=max(2,min(w,h)//200))
-                annotated_bytes=io.BytesIO();annotated.save(annotated_bytes,format='PNG')
-                heatmap_bytes=annotated_bytes.getvalue()
-        elif result.decision != Decision.PASS and calibrated_defects:
-            # VLM with regions
-            regions = [d["region"] for d in calibrated_defects if isinstance(d, dict) and d.get("region")]
-            heatmap_bytes, _ = generate_heatmap_from_regions(regions, original_bytes)
-        else:
-            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
-    except Exception as e:
-        logger.warning(f"Heatmap generation failed: {e}")
-        try:
-            heatmap_bytes, _ = generate_empty_heatmap(original_bytes)
-        except Exception:
-            pass
-
-    # Upload images to storage
-    original_url = None
-    heatmap_url = None
-    try:
-        original_url = await storage_service.upload_original(original_bytes, str(inspection_id))
-        if heatmap_bytes:
-            heatmap_url = await storage_service.upload_heatmap(heatmap_bytes, str(inspection_id))
-    except Exception as e:
-        logger.warning(f"Storage upload failed (non-fatal): {e}")
+    calibrated_defects, original_url, heatmap_url = await _prepare_and_upload(
+        result, original_bytes, str(inspection_id)
+    )
+    # Persist the duration through image processing and storage. The returned
+    # duration below also includes the database commit.
+    processing_time_ms = int((time.perf_counter() - start_time) * 1000)
 
     # Persist inspection
     threshold_used = result.threshold if result.threshold is not None else product_context.threshold
@@ -269,6 +297,8 @@ async def create_inspection(
     db.add(db_runtime)
 
     await db.commit()
+    processing_time_ms = int((time.perf_counter() - start_time) * 1000)
+    logger.info("Inspection %s completed in %dms", inspection_id, processing_time_ms)
 
     return InspectionResponse(
         inspection_id=inspection_id,
@@ -332,7 +362,7 @@ async def list_inspections(
     # Fetch page
     q = (
         select(Inspection)
-        .options(selectinload(Inspection.product))
+        .options(joinedload(Inspection.product))
         .order_by(Inspection.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -374,7 +404,7 @@ async def list_inspections(
 async def get_inspection(inspection_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Inspection)
-        .options(selectinload(Inspection.product), selectinload(Inspection.defects))
+        .options(joinedload(Inspection.product), selectinload(Inspection.defects))
         .where(Inspection.id == inspection_id)
     )
     insp = result.scalar_one_or_none()

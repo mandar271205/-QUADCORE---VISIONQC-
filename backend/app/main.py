@@ -74,6 +74,8 @@ def create_app() -> FastAPI:
     async def shutdown():
         from app.services.ml.member1_worker.client import member1_worker
         await member1_worker.shutdown()
+        from app.services.vlm.registry import VLMRegistry
+        await VLMRegistry.close()
         logger.info("VisionQC shutting down")
 
     return app

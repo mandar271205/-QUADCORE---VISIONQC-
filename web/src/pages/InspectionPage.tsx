@@ -15,6 +15,7 @@ type Stage = 'idle' | 'camera' | 'preview' | 'inspecting' | 'result' | 'error';
 
 export const InspectionPage: React.FC = () => {
   const webcamRef = useRef<Webcam>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stage, setStage] = useState<Stage>('idle');
@@ -29,6 +30,15 @@ export const InspectionPage: React.FC = () => {
   useEffect(() => {
     getProducts().then(setProducts).catch(console.error);
   }, []);
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
+
+  const clearPreviewUrl = () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+  };
 
   const selectedProductData = products.find(p => p.id === selectedProduct);
 
@@ -55,13 +65,11 @@ export const InspectionPage: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    clearPreviewUrl();
+    previewUrlRef.current = URL.createObjectURL(file);
     setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCapturedImage(ev.target?.result as string);
-      setStage('preview');
-    };
-    reader.readAsDataURL(file);
+    setCapturedImage(previewUrlRef.current);
+    setStage('preview');
     e.target.value = '';
   };
 
@@ -80,6 +88,7 @@ export const InspectionPage: React.FC = () => {
   };
 
   const reset = () => {
+    clearPreviewUrl();
     setStage('idle');
     setCapturedImage(null);
     setImageFile(null);
@@ -121,7 +130,7 @@ export const InspectionPage: React.FC = () => {
                   </div>
                 )}
                 {(stage === 'preview' || stage === 'inspecting' || stage === 'result' || stage === 'error') && capturedImage && (
-                  <img src={capturedImage} alt="Preview" className="w-full h-full object-contain" />
+                  <img decoding="async" src={capturedImage} alt="Preview" className="w-full h-full object-contain" />
                 )}
                 {stage === 'inspecting' && (
                   <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -209,8 +218,8 @@ export const InspectionPage: React.FC = () => {
                   </label>
 
                   <Select
-                    value={selectedProduct}
-                    onValueChange={setSelectedProduct}
+                    value={selectedProduct || 'none'}
+                    onValueChange={value => setSelectedProduct(value === 'none' ? '' : value)}
                   >
                     <SelectTrigger className="bg-secondary/50 border-border h-11">
                       <SelectValue placeholder="Select Product (optional)" />
